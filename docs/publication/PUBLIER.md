@@ -13,6 +13,17 @@ par vous.
 2. **Publier le code sur GitHub** dans un dépôt public `Everylesdias/EveryEasyInventoryMod` : c'est le lien
    « Sources » déjà inscrit dans le mod, et la licence LGPL demande que le code soit disponible.
    Les liens sont réglés dans `gradle.properties` (`homepage_url`, `sources_url`, `issues_url`) si le nom change.
+   Le dépôt local est prêt : branche `main`, remote `origin` vers ce dépôt, commits signés avec l'adresse
+   GitHub masquée. Sur github.com → **New repository** → nom `EveryEasyInventoryMod`, **Public**, **sans**
+   README, licence ni .gitignore (ils existent déjà), puis dans le dossier du projet :
+
+   ```bash
+   git push -u origin main
+   ```
+
+   Ne poussez que `main` (pas `--all`) : la branche locale `backup-avant-email` garde l'ancien historique avec
+   l'adresse gmail, à supprimer quand tout est en ligne (`git branch -D backup-avant-email`).
+   Dans **About** du dépôt, mettre la description et le site `https://modrinth.com/mod/everyeasyinventorymod`.
 3. **Vérifier le nom** : `everyeasyinventorymod` était libre sur Modrinth le 2026-10-30. Sur CurseForge, le site
    le dira à la création du projet.
 
