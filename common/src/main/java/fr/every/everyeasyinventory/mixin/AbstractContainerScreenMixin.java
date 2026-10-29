@@ -36,6 +36,11 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Shadow protected int inventoryLabelY;
 
     @Shadow
+    private @Nullable Slot getHoveredSlot(double x, double y) {
+        throw new AssertionError();
+    }
+
+    @Shadow
     protected abstract void slotClicked(Slot slot, int slotId, int buttonNum, ContainerInput containerInput);
 
     @Unique
@@ -119,6 +124,21 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Override
     public @Nullable Slot eei$hoveredSlot() {
         return hoveredSlot;
+    }
+
+    @Override
+    public @Nullable Slot eei$slotAt(double x, double y) {
+        return getHoveredSlot(x, y);
+    }
+
+    @Override
+    public int eei$leftPos() {
+        return leftPos;
+    }
+
+    @Override
+    public int eei$topPos() {
+        return topPos;
     }
 
     @Override

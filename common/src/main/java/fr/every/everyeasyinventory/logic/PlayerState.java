@@ -27,7 +27,7 @@ public final class PlayerState {
     public ItemStack lastHeld = ItemStack.EMPTY;
     public int lastHeldTotal;
 
-    public long lastDepositTick = Long.MIN_VALUE;
+    public long lastDepositTick = -1000L;
 
     public static synchronized PlayerState of(ServerPlayer player) {
         return STATES.computeIfAbsent(player, p -> new PlayerState());

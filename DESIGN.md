@@ -125,7 +125,30 @@ vérifie la distance et le droit d'ouvrir le coffre avant de répondre.
 Fichier de config par côté (client : affichage, touches ; serveur : rayon, conteneurs autorisés,
 hotbar incluse ou non). Écran de config : natif sous NeoForge, via Mod Menu sous Fabric.
 
-## 6. Journal des décisions
+## 6. État de l'implémentation (v1.0.0, 2026-10-29)
+
+Tout est codé pour les deux loaders. Le scénario de test en jeu (`./gradlew :fabric:runClientGameTest`)
+passe sous Fabric : rangement express, case verrouillée respectée, hologramme (regroupement du cuivre et
+totaux), tri, tout prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar.
+Sous NeoForge, le jeu démarre sans erreur ; le scénario n'y a pas encore été rejoué en monde.
+
+Écarts et précisions par rapport à la conception :
+
+- **Ordre du tri** : ordre d'enregistrement des items (la liste vanilla, très proche des onglets du mode
+  créatif). Les vrais onglets créatifs ne peuvent pas être reconstruits sans risque côté serveur.
+- **Tri** : fait par le serveur, donc les boutons de tri n'apparaissent que si le serveur a le mod.
+  Les transferts (tout prendre, tout déposer, molette, Maj+glisser, Ctrl+Maj+clic) passent par des clics
+  normaux et marchent aussi sur un serveur vanilla.
+- **Hologramme** : dessiné dans le HUD à l'endroit où le dessus du conteneur se projette à l'écran ;
+  il fait donc toujours face au joueur. Sa taille diminue avec la distance (de 100 % à 50 %).
+- **Raccourcis** : `R` trie la partie survolée (pas encore réassignable) ; Alt + clic verrouille ou
+  déverrouille une case de l'inventaire ; molette bas/haut = envoyer / ramener un item.
+- **Remplissage de la hotbar** : désactivé pendant qu'un conteneur est ouvert (sinon déposer le dernier
+  item tenu en main le remplacerait aussitôt).
+- **Configuration** : `config/everyeasyinventorymod.json` (rayon, hotbar incluse, distance de
+  l'hologramme, remplissage, hologramme activé, cases verrouillées). Pas encore d'écran de configuration.
+
+## 7. Journal des décisions
 
 | Date | Décision |
 |---|---|

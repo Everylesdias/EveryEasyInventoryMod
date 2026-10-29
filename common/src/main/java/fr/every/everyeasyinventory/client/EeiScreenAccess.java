@@ -14,6 +14,13 @@ public interface EeiScreenAccess {
 
     @Nullable Slot eei$hoveredSlot();
 
+    /** Case sous ce point de l'écran, sans attendre la prochaine image. */
+    @Nullable Slot eei$slotAt(double x, double y);
+
+    int eei$leftPos();
+
+    int eei$topPos();
+
     int eei$imageWidth();
 
     int eei$titleLabelY();

@@ -140,26 +140,26 @@ public final class ScreenTweaks {
 
     /** @return vrai si l'événement est consommé */
     public static boolean mouseClicked(EeiScreenAccess access, MouseButtonEvent event) {
-        Minecraft minecraft = Minecraft.getInstance();
         Slot slot = access.eei$hoveredSlot();
         if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || slot == null) {
             return false;
         }
-        if (minecraft.hasAltDown() && isPlayerSlot(slot)) {
+        if (alt(event) && isPlayerSlot(slot)) {
             ClientState.toggleLock(slot.getContainerSlot());
             return true;
         }
         boolean carrying = !access.eei$menu().getCarried().isEmpty();
-        if (minecraft.hasShiftDown() && minecraft.hasControlDown() && slot.hasItem() && !carrying) {
+        if (shift(event) && control(event) && slot.hasItem() && !carrying) {
             Item item = slot.getItem().getItem();
             for (Slot other : access.eei$menu().slots) {
-                if (other.container == slot.container && other.hasItem() && other.getItem().getItem() == item) {
+                if (other.container == slot.container && other.hasItem() && other.getItem().getItem() == item
+                        && !(isPlayerSlot(other) && ClientState.isLocked(other.getContainerSlot()))) {
                     access.eei$click(other, 0, ContainerInput.QUICK_MOVE);
                 }
             }
             return true;
         }
-        if (minecraft.hasShiftDown()) {
+        if (shift(event)) {
             DRAGGED.clear();
             DRAGGED.add(slot);
         }
@@ -167,8 +167,8 @@ public final class ScreenTweaks {
     }
 
     public static boolean mouseDragged(EeiScreenAccess access, MouseButtonEvent event) {
-        Slot slot = access.eei$hoveredSlot();
-        if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || !Minecraft.getInstance().hasShiftDown()
+        Slot slot = access.eei$slotAt(event.x(), event.y());
+        if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || !shift(event)
                 || slot == null || !access.eei$menu().getCarried().isEmpty()) {
             return false;
         }
@@ -271,6 +271,19 @@ public final class ScreenTweaks {
                 graphics.fill(x + 1, y + 4, x + 6, y + 7, LOCK_COLOR);
             }
         }
+    }
+
+    // L'événement porte les touches de modification ; l'état du clavier sert de secours (entrées simulées).
+    private static boolean shift(MouseButtonEvent event) {
+        return event.hasShiftDown() || Minecraft.getInstance().hasShiftDown();
+    }
+
+    private static boolean control(MouseButtonEvent event) {
+        return event.hasControlDown() || Minecraft.getInstance().hasControlDown();
+    }
+
+    private static boolean alt(MouseButtonEvent event) {
+        return event.hasAltDown() || Minecraft.getInstance().hasAltDown();
     }
 
     /** Case de l'inventaire du joueur (hotbar ou inventaire principal, pas l'armure). */

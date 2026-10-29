@@ -23,3 +23,6 @@ eclipse
 run
 runs
 build.log
+gametest.log
+runclient.log
+neoclient.log

@@ -1,0 +1,15 @@
+{
+    "schemaVersion": 1,
+    "id": "everyeasyinventorymod_gametest",
+    "version": "1.0.0",
+    "name": "EveryEasyInventoryMod tests",
+    "environment": "*",
+    "entrypoints": {
+        "fabric-client-gametest": [
+            "fr.every.everyeasyinventory.gametest.EeiClientGameTest"
+        ]
+    },
+    "depends": {
+        "everyeasyinventorymod": "*"
+    }
+}

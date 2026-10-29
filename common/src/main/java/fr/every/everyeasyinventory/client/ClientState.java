@@ -33,6 +33,11 @@ public final class ClientState {
         return Minecraft.getInstance().getConnection() != null && Services.PLATFORM.canSendToServer(Payloads.Sort.TYPE);
     }
 
+    /** Dernier résumé reçu pour le conteneur visé, ou {@code null}. */
+    public static Payloads.@Nullable PeekContents contents() {
+        return contents != null && contents.pos().equals(target) ? contents : null;
+    }
+
     public static void onPeekContents(Payloads.PeekContents payload) {
         contents = payload;
     }

@@ -47,3 +47,14 @@ sourceSets.configureEach {
         }
     }
 }
+
+// Tests en jeu automatisés : ./gradlew :fabric:runClientGameTest
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "${mod_id}_gametest"
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+    }
+}
