@@ -12,8 +12,14 @@
     "entrypoints": {
         "main": [
             "fr.every.everyeasyinventory.EveryEasyInventoryFabric"
+        ],
+        "client": [
+            "fr.every.everyeasyinventory.EveryEasyInventoryFabricClient"
         ]
     },
+    "mixins": [
+        "${mod_id}.mixins.json"
+    ],
     "depends": {
         "fabricloader": ">=${fabric_loader_version}",
         "fabric-api": "*",

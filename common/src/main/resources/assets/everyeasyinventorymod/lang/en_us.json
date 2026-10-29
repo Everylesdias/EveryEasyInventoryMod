@@ -1,0 +1,11 @@
+{
+  "button.everyeasyinventorymod.send": "Send",
+  "button.everyeasyinventorymod.send.tooltip": "Send items to nearby chests that already contain them (hotbar and locked slots excluded)",
+  "button.everyeasyinventorymod.sort_inventory": "Sort inventory (R)",
+  "button.everyeasyinventorymod.sort_container": "Sort container (R)",
+  "button.everyeasyinventorymod.take_all": "Take all",
+  "button.everyeasyinventorymod.deposit_all": "Deposit all (hotbar excluded)",
+  "button.everyeasyinventorymod.deposit_matching": "Deposit matching items",
+  "message.everyeasyinventorymod.deposit": "%s items stored in %s containers",
+  "message.everyeasyinventorymod.deposit.none": "Nothing to store nearby"
+}

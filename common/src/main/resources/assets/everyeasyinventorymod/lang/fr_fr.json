@@ -1,0 +1,11 @@
+{
+  "button.everyeasyinventorymod.send": "Envoyer",
+  "button.everyeasyinventorymod.send.tooltip": "Envoie les items vers les coffres proches qui en contiennent déjà (hotbar et cases verrouillées exclues)",
+  "button.everyeasyinventorymod.sort_inventory": "Trier l'inventaire (R)",
+  "button.everyeasyinventorymod.sort_container": "Trier le conteneur (R)",
+  "button.everyeasyinventorymod.take_all": "Tout prendre",
+  "button.everyeasyinventorymod.deposit_all": "Tout déposer (hotbar exclue)",
+  "button.everyeasyinventorymod.deposit_matching": "Déposer les items déjà présents",
+  "message.everyeasyinventorymod.deposit": "%s items rangés dans %s conteneurs",
+  "message.everyeasyinventorymod.deposit.none": "Rien à ranger à proximité"
+}

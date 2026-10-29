@@ -1,0 +1,349 @@
+package fr.every.everyeasyinventory.logic;
+
+import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.network.Payloads;
+import fr.every.everyeasyinventory.platform.Services;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.DispenserMenu;
+import net.minecraft.world.inventory.HopperMenu;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.HoneycombItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.WeatheringCopper;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Tout ce que le serveur fait à la demande du client ou à chaque tick d'un joueur.
+ */
+public final class ServerActions {
+
+    /** Cases 9 à 35 de l'inventaire du joueur : l'inventaire principal, sans la hotbar. */
+    private static final int MAIN_START = Inventory.getSelectionSize();
+    private static final int MAIN_END = 36;
+    private static final int MAX_HOLOGRAM_ENTRIES = 54;
+
+    private ServerActions() {
+    }
+
+    /** Menus dont la partie conteneur peut être triée. */
+    public static boolean isSortableMenu(AbstractContainerMenu menu) {
+        return menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu
+                || menu instanceof DispenserMenu || menu instanceof HopperMenu;
+    }
+
+    // ---------------------------------------------------------------- tri
+
+    public static void sort(ServerPlayer player, int containerId, boolean playerSide) {
+        AbstractContainerMenu menu = player.containerMenu;
+        if (menu.containerId != containerId || !menu.stillValid(player)) {
+            return;
+        }
+        Inventory inventory = player.getInventory();
+        PlayerState state = PlayerState.of(player);
+        List<Slot> slots = new ArrayList<>();
+        for (Slot slot : menu.slots) {
+            boolean isPlayerSlot = slot.container == inventory;
+            if (playerSide) {
+                int index = slot.getContainerSlot();
+                if (isPlayerSlot && index >= MAIN_START && index < MAIN_END && !state.isLocked(index)) {
+                    slots.add(slot);
+                }
+            } else if (!isPlayerSlot && isSortableMenu(menu)) {
+                slots.add(slot);
+            }
+        }
+        if (slots.isEmpty()) {
+            return;
+        }
+        int limit = slots.getFirst().getMaxStackSize();
+        List<ItemStack> sorted = ItemSorting.mergeAndSort(slots.stream().map(Slot::getItem).toList(), limit);
+        for (int i = 0; i < slots.size(); i++) {
+            slots.get(i).set(i < sorted.size() ? sorted.get(i) : ItemStack.EMPTY);
+        }
+        menu.broadcastChanges();
+    }
+
+    // ---------------------------------------------------------------- rangement express
+
+    public static void areaDeposit(ServerPlayer player) {
+        ServerLevel level = (ServerLevel) player.level();
+        PlayerState state = PlayerState.of(player);
+        long now = level.getGameTime();
+        if (now - state.lastDepositTick < 20) {
+            return;
+        }
+        state.lastDepositTick = now;
+
+        EeiConfig config = EeiConfig.get();
+        List<ContainerFinder.Target> targets = nearbyContainers(player, level, config.depositRadius);
+        List<Set<Item>> contents = targets.stream().map(target -> itemsIn(target.container())).toList();
+
+        Inventory inventory = player.getInventory();
+        int first = config.depositIncludesHotbar ? 0 : MAIN_START;
+        int moved = 0;
+        Set<Integer> touched = new HashSet<>();
+        for (int i = first; i < MAIN_END; i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (stack.isEmpty() || state.isLocked(i)) {
+                continue;
+            }
+            int before = stack.getCount();
+            // 1. Compléter les piles identiques déjà présentes, du conteneur le plus proche au plus loin.
+            for (int t = 0; t < targets.size() && !stack.isEmpty(); t++) {
+                if (contents.get(t).contains(stack.getItem()) && fillExisting(targets.get(t).container(), stack)) {
+                    touched.add(t);
+                }
+            }
+            // 2. Puis les cases vides des conteneurs qui contiennent déjà cet item.
+            for (int t = 0; t < targets.size() && !stack.isEmpty(); t++) {
+                if (contents.get(t).contains(stack.getItem()) && fillEmpty(targets.get(t).container(), stack)) {
+                    touched.add(t);
+                }
+            }
+            if (stack.getCount() != before) {
+                moved += before - stack.getCount();
+                inventory.setItem(i, stack.isEmpty() ? ItemStack.EMPTY : stack);
+            }
+        }
+
+        if (moved == 0) {
+            player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.deposit.none"));
+            return;
+        }
+        for (int t : touched) {
+            targets.get(t).container().setChanged();
+            Vec3 center = targets.get(t).center();
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y + 0.6, center.z, 6, 0.3, 0.2, 0.3, 0.0);
+        }
+        player.inventoryMenu.broadcastChanges();
+        level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.5F, 1.2F);
+        player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.deposit", moved, touched.size()));
+    }
+
+    private static List<ContainerFinder.Target> nearbyContainers(ServerPlayer player, ServerLevel level, int radius) {
+        BlockPos center = player.blockPosition();
+        Vec3 eyes = player.getEyePosition();
+        Set<BlockPos> seen = new HashSet<>();
+        List<ContainerFinder.Target> targets = new ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(center.offset(-radius, -radius, -radius), center.offset(radius, radius, radius))) {
+            if (!level.isLoaded(pos) || !ContainerFinder.isSupported(level.getBlockEntity(pos))) {
+                continue;
+            }
+            BlockPos immutable = pos.immutable();
+            ContainerFinder.Target target = ContainerFinder.find(level, immutable);
+            if (target != null && seen.add(target.key()) && ContainerFinder.canAccess(player, level, immutable)) {
+                targets.add(target);
+            }
+        }
+        targets.sort(Comparator.comparingDouble(target -> target.center().distanceToSqr(eyes)));
+        return targets;
+    }
+
+    private static Set<Item> itemsIn(Container container) {
+        Set<Item> items = new HashSet<>();
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            ItemStack stack = container.getItem(i);
+            if (!stack.isEmpty()) {
+                items.add(stack.getItem());
+            }
+        }
+        return items;
+    }
+
+    private static boolean fillExisting(Container container, ItemStack stack) {
+        boolean changed = false;
+        for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
+            ItemStack existing = container.getItem(i);
+            int max = Math.min(container.getMaxStackSize(), existing.getMaxStackSize());
+            if (!existing.isEmpty() && existing.getCount() < max && ItemStack.isSameItemSameComponents(existing, stack)) {
+                int count = Math.min(max - existing.getCount(), stack.getCount());
+                existing.grow(count);
+                stack.shrink(count);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private static boolean fillEmpty(Container container, ItemStack stack) {
+        boolean changed = false;
+        for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
+            if (container.getItem(i).isEmpty() && container.canPlaceItem(i, stack)) {
+                int max = Math.min(container.getMaxStackSize(), stack.getMaxStackSize());
+                container.setItem(i, stack.split(Math.min(max, stack.getCount())));
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    // ---------------------------------------------------------------- hologramme
+
+    public static void peek(ServerPlayer player, Optional<BlockPos> pos) {
+        PlayerState state = PlayerState.of(player);
+        state.peekPos = pos.filter(p -> isPeekable(player, p, EeiConfig.get().hologramMaxDistance + 1.5)).orElse(null);
+        state.peekHash = 0;
+        if (state.peekPos != null) {
+            sendPeek(player, state, true);
+        }
+    }
+
+    private static boolean isPeekable(ServerPlayer player, BlockPos pos, double maxDistance) {
+        ServerLevel level = (ServerLevel) player.level();
+        return level.isLoaded(pos)
+                && ContainerFinder.isSupported(level.getBlockEntity(pos))
+                && Vec3.atCenterOf(pos).distanceTo(player.getEyePosition()) <= maxDistance
+                && ContainerFinder.canAccess(player, level, pos);
+    }
+
+    private static void sendPeek(ServerPlayer player, PlayerState state, boolean force) {
+        ContainerFinder.Target target = ContainerFinder.find(player.level(), state.peekPos);
+        if (target == null) {
+            state.peekPos = null;
+            return;
+        }
+        Map<Item, ItemStack> icons = new LinkedHashMap<>();
+        Map<Item, Integer> counts = new LinkedHashMap<>();
+        Container container = target.container();
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            ItemStack stack = container.getItem(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            Item group = groupOf(stack.getItem());
+            if (!icons.containsKey(group) && icons.size() >= MAX_HOLOGRAM_ENTRIES) {
+                continue;
+            }
+            icons.computeIfAbsent(group, g -> iconFor(stack, g));
+            counts.merge(group, stack.getCount(), Integer::sum);
+        }
+        List<ItemStack> iconList = new ArrayList<>(icons.values());
+        List<Integer> countList = new ArrayList<>(counts.values());
+        int hash = Objects.hash(target.key(), icons.keySet(), countList);
+        if (force || hash != state.peekHash) {
+            state.peekHash = hash;
+            Services.PLATFORM.sendToPlayer(player, new Payloads.PeekContents(target.key(), iconList, countList));
+        }
+    }
+
+    /**
+     * Item sous lequel regrouper un item dans l'hologramme : le cuivre oxydé ou ciré rejoint sa forme de base.
+     */
+    public static Item groupOf(Item item) {
+        if (item instanceof BlockItem blockItem) {
+            Block block = blockItem.getBlock();
+            Block unwaxed = HoneycombItem.WAX_OFF_BY_BLOCK.get().getOrDefault(block, block);
+            Item base = WeatheringCopper.getFirst(unwaxed).asItem();
+            if (base != Items.AIR) {
+                return base;
+            }
+        }
+        return item;
+    }
+
+    private static ItemStack iconFor(ItemStack first, Item group) {
+        if (first.getItem() != group) {
+            return new ItemStack(group);
+        }
+        ItemStack icon = first.copyWithCount(1);
+        icon.remove(DataComponents.DAMAGE);
+        return icon;
+    }
+
+    // ---------------------------------------------------------------- tick
+
+    public static void tick(ServerPlayer player) {
+        PlayerState state = PlayerState.of(player);
+        if (state.peekPos != null && player.tickCount % 5 == 0) {
+            if (isPeekable(player, state.peekPos, EeiConfig.get().hologramMaxDistance + 2.5)) {
+                sendPeek(player, state, false);
+            } else {
+                state.peekPos = null;
+            }
+        }
+        if (EeiConfig.get().hotbarRefill) {
+            refillHotbar(player, state);
+        }
+    }
+
+    /**
+     * Quand la pile en main disparaît de l'inventaire (dernier bloc posé, nourriture finie, outil cassé),
+     * la remplacer par une pile identique de l'inventaire principal.
+     */
+    private static void refillHotbar(ServerPlayer player, PlayerState state) {
+        Inventory inventory = player.getInventory();
+        int selected = inventory.getSelectedSlot();
+        ItemStack held = inventory.getItem(selected);
+        boolean screenOpen = player.containerMenu != player.inventoryMenu;
+        if (selected == state.lastSelectedSlot && held.isEmpty() && !state.lastHeld.isEmpty()
+                && !screenOpen && !player.isSpectator()
+                && count(player, state.lastHeld.getItem()) < state.lastHeldTotal) {
+            int source = findRefill(inventory, state, state.lastHeld);
+            if (source >= 0) {
+                inventory.setItem(selected, inventory.getItem(source));
+                inventory.setItem(source, ItemStack.EMPTY);
+                held = inventory.getItem(selected);
+            }
+        }
+        state.lastSelectedSlot = selected;
+        state.lastHeld = held.copy();
+        state.lastHeldTotal = held.isEmpty() ? 0 : count(player, held.getItem());
+    }
+
+    private static int findRefill(Inventory inventory, PlayerState state, ItemStack previous) {
+        int sameItem = -1;
+        for (int i = MAIN_START; i < MAIN_END; i++) {
+            ItemStack candidate = inventory.getItem(i);
+            if (candidate.isEmpty() || state.isLocked(i) || candidate.getItem() != previous.getItem()) {
+                continue;
+            }
+            if (ItemStack.isSameItemSameComponents(candidate, previous)) {
+                return i;
+            }
+            if (sameItem < 0) {
+                sameItem = i;
+            }
+        }
+        return sameItem;
+    }
+
+    private static int count(ServerPlayer player, Item item) {
+        int total = 0;
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (stack.getItem() == item) {
+                total += stack.getCount();
+            }
+        }
+        ItemStack carried = player.containerMenu.getCarried();
+        if (carried.getItem() == item) {
+            total += carried.getCount();
+        }
+        return total;
+    }
+}
