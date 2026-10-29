@@ -36,9 +36,8 @@ import java.util.function.Predicate;
 public final class ScreenTweaks {
 
     private static final int BUTTON_SIZE = 11;
-    private static final int LOCK_TINT = 0x40FF4040;
-    private static final int LOCK_COLOR = 0xFFE8C040;
-    private static final int LOCK_SHADOW = 0xFF3F2F10;
+    private static final int LOCK_COLOR = 0xCCE0C060;
+    private static final int LOCK_SHADOW = 0x66000000;
 
     /** Bouton et sa position relative au coin haut gauche de l'image de l'écran. */
     public record Placed(Button button, int dx, int dy) {
@@ -260,17 +259,20 @@ public final class ScreenTweaks {
         }
         for (Slot slot : access.eei$menu().slots) {
             if (slot.isActive() && isPlayerSlot(slot) && ClientState.isLocked(slot.getContainerSlot())) {
-                int x = slot.x;
-                int y = slot.y;
-                graphics.fill(x, y, x + 16, y + 16, LOCK_TINT);
-                // Petit cadenas dans le coin haut gauche : anse puis corps.
-                graphics.fill(x + 1, y, x + 6, y + 4, LOCK_SHADOW);
-                graphics.fill(x + 2, y + 1, x + 3, y + 3, LOCK_COLOR);
-                graphics.fill(x + 4, y + 1, x + 5, y + 3, LOCK_COLOR);
-                graphics.fill(x, y + 3, x + 7, y + 8, LOCK_SHADOW);
-                graphics.fill(x + 1, y + 4, x + 6, y + 7, LOCK_COLOR);
+                // Cadenas de 4×5 pixels dans le coin haut droit, avec une ombre décalée d'un pixel.
+                int x = slot.x + 11;
+                int y = slot.y + 1;
+                drawPadlock(graphics, x + 1, y + 1, LOCK_SHADOW);
+                drawPadlock(graphics, x, y, LOCK_COLOR);
             }
         }
+    }
+
+    private static void drawPadlock(GuiGraphicsExtractor graphics, int x, int y, int color) {
+        graphics.fill(x + 1, y, x + 3, y + 1, color);     // anse
+        graphics.fill(x, y + 1, x + 1, y + 2, color);
+        graphics.fill(x + 3, y + 1, x + 4, y + 2, color);
+        graphics.fill(x, y + 2, x + 4, y + 5, color);     // corps
     }
 
     // L'événement porte les touches de modification ; l'état du clavier sert de secours (entrées simulées).
