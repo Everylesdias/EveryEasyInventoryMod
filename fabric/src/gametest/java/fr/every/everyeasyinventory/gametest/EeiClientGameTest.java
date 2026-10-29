@@ -260,6 +260,7 @@ public class EeiClientGameTest implements FabricClientGameTest {
             openLookedAt(context, server, chestA);
             clickTitle(context);
             check(context.computeOnClient(mc -> renameBox(mc).isVisible() && renameBox(mc).isFocused()), "un clic sur le titre ouvre le champ de renommage");
+            check(context.computeOnClient(mc -> mc.gui.screen().getTitle().getString()).isEmpty(), "l'ancien titre ne doit pas se superposer au champ");
             context.getInput().typeChars("Minerais");
             context.getInput().pressKey(InputConstants.KEY_RETURN);
             context.waitTicks(5);

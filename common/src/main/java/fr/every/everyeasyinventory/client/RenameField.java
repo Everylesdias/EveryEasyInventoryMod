@@ -40,6 +40,8 @@ public final class RenameField {
     private int titleX;
     private int titleY;
     private int maxWidth;
+    /** Titre d'avant l'édition : le jeu dessine le titre par-dessus les champs, on le vide pendant la saisie. */
+    private Component savedTitle = Component.empty();
 
     private RenameField(Screen screen, EeiScreenAccess access, BlockPos pos, Consumer<Component> setTitle) {
         this.screen = screen;
@@ -89,9 +91,10 @@ public final class RenameField {
     // ---------------------------------------------------------------- édition
 
     private void start() {
-        Component title = screen.getTitle();
-        box.setValue(ContainerFinder.customName(Minecraft.getInstance().level, pos) != null ? title.getString() : "");
-        box.setHint(title.copy());
+        savedTitle = screen.getTitle();
+        setTitle.accept(Component.empty());
+        box.setValue(ContainerFinder.customName(Minecraft.getInstance().level, pos) != null ? savedTitle.getString() : "");
+        box.setHint(savedTitle.copy());
         box.setVisible(true);
         box.setFocused(true);
         screen.setFocused(box);
@@ -146,6 +149,7 @@ public final class RenameField {
         int key = event.key();
         if (key == InputConstants.KEY_ESCAPE) {
             stop();
+            setTitle.accept(savedTitle);
         } else if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
             commit();
         } else {

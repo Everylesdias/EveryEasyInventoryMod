@@ -343,7 +343,9 @@ public class EeiSelfTest {
         openLookedAt(chestA);
         clickTitle();
         check(onClient(mc -> renameBox(mc).isVisible() && renameBox(mc).isFocused()), "un clic sur le titre ouvre le champ de renommage");
+        check(onClient(mc -> mc.gui.screen().getTitle().getString()).isEmpty(), "l'ancien titre ne doit pas se superposer au champ");
         typeText("Minerais");
+        screenshot("eei_9a_renommage_saisie");
         pressKey(InputConstants.KEY_RETURN);
         waitTicks(5);
         check(onClient(mc -> mc.gui.screen().getTitle().getString()).equals("Minerais"), "le titre affiche le nouveau nom");
