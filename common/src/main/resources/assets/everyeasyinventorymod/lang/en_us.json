@@ -9,5 +9,6 @@
   "message.everyeasyinventorymod.deposit": "%s items stored in %s containers",
   "message.everyeasyinventorymod.deposit.none": "Nothing to store nearby",
   "search.everyeasyinventorymod.hint": "Search an item…",
-  "search.everyeasyinventorymod.narration": "Item search"
+  "search.everyeasyinventorymod.narration": "Item search",
+  "rename.everyeasyinventorymod.narration": "Rename container"
 }

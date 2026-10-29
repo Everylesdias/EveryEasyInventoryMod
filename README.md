@@ -16,10 +16,11 @@ La conception et le journal des décisions sont dans [DESIGN.md](DESIGN.md).
 | Inventaire | Verrouiller une case (le tri et les dépôts n'y touchent pas) | **Alt + clic** |
 | En jeu | Hologramme du contenu du conteneur visé (≤ 3 blocs) | regarder le coffre |
 | En jeu | Remplacer la pile en main quand elle s'épuise ou que l'outil casse | automatique |
+| Coffres, tonneaux, shulkers | Renommer le conteneur (nom vanilla, comme l'enclume) ; le nom s'affiche au-dessus de l'hologramme | clic sur le **titre**, Entrée valide, Échap annule, vide = nom par défaut |
 | Inventaire, coffres | Chercher un item : il est encadré dans l'inventaire, et les conteneurs visibles à 10 blocs qui l'ont (shulkers rangées comprises) sont entourés | barre **Rechercher un item…** sous l'écran, autocomplétion (↑ ↓ Entrée) ; vider la barre arrête la recherche |
 
 Le mod doit être installé sur le serveur pour le rangement express, le tri, l'hologramme, le
-remplissage de la hotbar et le contour des conteneurs trouvés par la recherche (en solo, c'est automatique).
+remplissage de la hotbar, le renommage et le contour des conteneurs trouvés par la recherche (en solo, c'est automatique).
 
 ## Construire
 

@@ -3,7 +3,7 @@ loaderVersion = "[4,)"
 license = "LGPL-3.0-only"
 [[mods]]
 modId = "eei_selftest"
-version = "1.1.0"
+version = "1.2.0"
 displayName = "EveryEasyInventoryMod self-test"
 description = '''Scénario de test en monde, lancé par ./gradlew :neoforge:runSelftest.'''
 [[dependencies.eei_selftest]]

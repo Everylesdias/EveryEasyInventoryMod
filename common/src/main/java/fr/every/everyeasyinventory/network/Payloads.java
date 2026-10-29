@@ -4,6 +4,8 @@ import fr.every.everyeasyinventory.Constants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -77,11 +79,12 @@ public final class Payloads {
         }
     }
 
-    /** Serveur → client : résumé du conteneur visé, un item par type avec son total. */
-    public record PeekContents(BlockPos pos, List<ItemStack> icons, List<Integer> counts) implements CustomPacketPayload {
+    /** Serveur → client : résumé du conteneur visé, un item par type avec son total, et son nom s'il a été renommé. */
+    public record PeekContents(BlockPos pos, Optional<Component> name, List<ItemStack> icons, List<Integer> counts) implements CustomPacketPayload {
         public static final Type<PeekContents> TYPE = createType("peek_contents");
         public static final StreamCodec<RegistryFriendlyByteBuf, PeekContents> CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, PeekContents::pos,
+                ComponentSerialization.TRUSTED_OPTIONAL_STREAM_CODEC, PeekContents::name,
                 ItemStack.OPTIONAL_LIST_STREAM_CODEC, PeekContents::icons,
                 ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()), PeekContents::counts,
                 PeekContents::new);
@@ -114,6 +117,21 @@ public final class Payloads {
 
         @Override
         public Type<SearchResults> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client → serveur : renommer le conteneur du menu ouvert (en {@code pos}) ; nom vide = nom par défaut. */
+    public record Rename(int containerId, BlockPos pos, String name) implements CustomPacketPayload {
+        public static final Type<Rename> TYPE = createType("rename");
+        public static final StreamCodec<RegistryFriendlyByteBuf, Rename> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, Rename::containerId,
+                BlockPos.STREAM_CODEC, Rename::pos,
+                ByteBufCodecs.stringUtf8(256), Rename::name,
+                Rename::new);
+
+        @Override
+        public Type<Rename> type() {
             return TYPE;
         }
     }

@@ -63,6 +63,19 @@ public final class ScreenTweaks {
         return screen instanceof InventoryScreen || screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen;
     }
 
+    /** Titre cliquable pour renommer : écrans de coffre, tonneau et shulker. */
+    public static boolean isRenamable(Screen screen) {
+        return screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen;
+    }
+
+    /** Largeur prise par les boutons à droite de la ligne du titre (voir {@link #createButtons}). */
+    public static int titleRowButtonsWidth(EeiScreenAccess access) {
+        if (!ServerActions.isSortableMenu(access.eei$menu())) {
+            return 0;
+        }
+        return (ClientState.serverHasMod() ? 2 : 1) * (BUTTON_SIZE + 1);
+    }
+
     // ---------------------------------------------------------------- boutons
 
     public static List<Placed> createButtons(Screen screen, EeiScreenAccess access) {
@@ -149,7 +162,7 @@ public final class ScreenTweaks {
 
     /** @return vrai si l'événement est consommé */
     public static boolean mouseClicked(EeiScreenAccess access, MouseButtonEvent event) {
-        Slot slot = access.eei$hoveredSlot();
+        Slot slot = access.eei$slotAt(event.x(), event.y());
         if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || slot == null) {
             return false;
         }

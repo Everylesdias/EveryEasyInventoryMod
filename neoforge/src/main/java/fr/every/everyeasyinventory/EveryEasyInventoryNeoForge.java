@@ -29,6 +29,8 @@ public class EveryEasyInventoryNeoForge {
                 (payload, context) -> ServerHandlers.onPeek(payload, (ServerPlayer) context.player()));
         registrar.playToServer(Payloads.Search.TYPE, Payloads.Search.CODEC,
                 (payload, context) -> ServerHandlers.onSearch(payload, (ServerPlayer) context.player()));
+        registrar.playToServer(Payloads.Rename.TYPE, Payloads.Rename.CODEC,
+                (payload, context) -> ServerHandlers.onRename(payload, (ServerPlayer) context.player()));
         registrar.playToClient(Payloads.SearchResults.TYPE, Payloads.SearchResults.CODEC,
                 (payload, context) -> ClientState.onSearchResults(payload));
         registrar.playToClient(Payloads.PeekContents.TYPE, Payloads.PeekContents.CODEC,

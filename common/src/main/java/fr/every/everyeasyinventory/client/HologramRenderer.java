@@ -6,6 +6,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -14,7 +15,8 @@ import org.joml.Vector3fc;
 import java.util.List;
 
 /**
- * Hologramme au-dessus du conteneur visé : une case semi-transparente par type d'item, avec son total.
+ * Hologramme au-dessus du conteneur visé : son nom s'il a été renommé, puis une case semi-transparente par type
+ * d'item, avec son total.
  * Dessiné dans le HUD à l'endroit où le dessus du conteneur se projette à l'écran, il fait donc toujours
  * face au joueur ; sa taille diminue avec la distance.
  */
@@ -28,6 +30,8 @@ public final class HologramRenderer {
     private static final int SLOT_COLOR = 0x508B8B8B;
     private static final int SLOT_SHADOW = 0x40373737;
     private static final int SLOT_LIGHT = 0x40FFFFFF;
+    private static final int NAME_COLOR = 0xFFFFFFFF;
+    private static final int NAME_PADDING = 3;
 
     private HologramRenderer() {
     }
@@ -35,7 +39,7 @@ public final class HologramRenderer {
     public static void render(GuiGraphicsExtractor graphics, Minecraft minecraft) {
         Payloads.PeekContents contents = ClientState.contents;
         BlockPos block = ClientState.targetBlock;
-        if (contents == null || block == null || contents.icons().isEmpty() || minecraft.level == null
+        if (contents == null || block == null || (contents.icons().isEmpty() && contents.name().isEmpty()) || minecraft.level == null
                 || !contents.pos().equals(ClientState.target)) {
             return;
         }
@@ -61,11 +65,16 @@ public final class HologramRenderer {
         int columns = Math.min(COLUMNS, icons.size());
         int rows = (icons.size() + COLUMNS - 1) / COLUMNS;
         int width = columns * CELL + PADDING * 2;
-        int height = rows * CELL + PADDING * 2;
+        int height = icons.isEmpty() ? 0 : rows * CELL + PADDING * 2;
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
+        contents.name().ifPresent(name -> drawName(graphics, minecraft, name, height));
+        if (icons.isEmpty()) {
+            graphics.pose().popMatrix();
+            return;
+        }
         graphics.pose().translate(-width / 2.0F, -height);
 
         graphics.fill(0, 0, width, height, PANEL_COLOR);
@@ -84,6 +93,16 @@ public final class HologramRenderer {
             graphics.itemDecorations(minecraft.font, icon, slotX + 1, slotY + 1, count > 1 ? formatCount(count) : null);
         }
         graphics.pose().popMatrix();
+    }
+
+    /** Nom du conteneur sur un bandeau semi-transparent, centré au-dessus du panneau (ou de l'ancre s'il est vide). */
+    private static void drawName(GuiGraphicsExtractor graphics, Minecraft minecraft, Component name, int panelHeight) {
+        int textWidth = minecraft.font.width(name);
+        int left = -textWidth / 2 - NAME_PADDING;
+        int bottom = -panelHeight - (panelHeight > 0 ? 1 : 0);
+        int top = bottom - minecraft.font.lineHeight - NAME_PADDING;
+        graphics.fill(left, top, left + textWidth + NAME_PADDING * 2, bottom, PANEL_COLOR);
+        graphics.text(minecraft.font, name, -textWidth / 2, top + NAME_PADDING / 2 + 1, NAME_COLOR);
     }
 
     /** 7 → « 7 », 1 234 → « 1.2k », 12 345 → « 12k ». */

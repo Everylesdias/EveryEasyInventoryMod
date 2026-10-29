@@ -13,6 +13,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -22,12 +23,14 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 
 import java.util.List;
 
 /**
  * Scénario de bout en bout dans un vrai client avec un monde solo :
- * rangement express, cases verrouillées, hologramme, tri, tout prendre / tout déposer, remplissage de la hotbar, recherche d'item.
+ * rangement express, cases verrouillées, hologramme, tri, tout prendre / tout déposer, remplissage de la hotbar, recherche d'item,
+ * renommage d'un conteneur.
  * Lancer avec {@code ./gradlew :fabric:runClientGameTest} ; les captures sont dans fabric/build/run/clientGameTest/screenshots.
  */
 public class EeiClientGameTest implements FabricClientGameTest {
@@ -250,12 +253,85 @@ public class EeiClientGameTest implements FabricClientGameTest {
             }
             context.waitTicks(2);
             check(context.computeOnClient(mc -> ClientState.searchItem() == null && ClientState.searchMembers().isEmpty()), "barre vidée : plus de recherche");
+            context.runOnClient(mc -> mc.player.closeContainer());
+            context.waitTicks(3);
+
+            // ---- Renommer un conteneur : clic sur le titre, saisie, Entrée
+            openLookedAt(context, server, chestA);
+            clickTitle(context);
+            check(context.computeOnClient(mc -> renameBox(mc).isVisible() && renameBox(mc).isFocused()), "un clic sur le titre ouvre le champ de renommage");
+            context.getInput().typeChars("Minerais");
+            context.getInput().pressKey(InputConstants.KEY_RETURN);
+            context.waitTicks(5);
+            check(context.computeOnClient(mc -> mc.gui.screen().getTitle().getString()).equals("Minerais"), "le titre affiche le nouveau nom");
+            server.runOnServer(s -> {
+                Component name = ((BaseContainerBlockEntity) s.overworld().getBlockEntity(chestA)).getCustomName();
+                check(name != null && name.getString().equals("Minerais"), "le serveur pose le nom vanilla : " + name);
+            });
+            context.takeScreenshot("eei_8_renommage");
+
+            clickTitle(context);
+            context.getInput().typeChars("X");
+            context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+            context.waitTicks(3);
+            check(context.computeOnClient(mc -> mc.gui.screen() instanceof ContainerScreen), "Échap pendant le renommage ne ferme pas le coffre");
+            check(context.computeOnClient(mc -> mc.gui.screen().getTitle().getString()).equals("Minerais"), "Échap annule le renommage");
+
+            context.runOnClient(mc -> mc.player.closeContainer());
+            context.getInput().lookAt(chestA);
+            context.waitFor(mc -> ClientState.contents() != null && ClientState.contents().name().isPresent(), 100);
+            check(context.computeOnClient(mc -> ClientState.contents().name().get().getString()).equals("Minerais"), "nom de l'hologramme");
+            context.waitTicks(3);
+            context.takeScreenshot("eei_9_hologramme_nom");
+            server.runOnServer(s -> container(s, chestA).clearContent());
+            context.waitFor(mc -> ClientState.contents() != null && ClientState.contents().icons().isEmpty(), 100);
+            check(context.computeOnClient(mc -> ClientState.contents().name().isPresent()), "le nom reste affiché quand le coffre est vide");
+
+            openLookedAt(context, server, chestA);
+            clickTitle(context);
+            context.getInput().pressKey(InputConstants.KEY_END);
+            for (int i = 0; i < "Minerais".length(); i++) {
+                context.getInput().pressKey(InputConstants.KEY_BACKSPACE);
+            }
+            context.getInput().pressKey(InputConstants.KEY_RETURN);
+            context.waitTicks(5);
+            server.runOnServer(s -> check(((BaseContainerBlockEntity) s.overworld().getBlockEntity(chestA)).getCustomName() == null, "champ vidé : nom par défaut"));
+            check(context.computeOnClient(mc -> mc.gui.screen().getTitle().getString()).equals("Chest"), "titre par défaut");
+            context.runOnClient(mc -> mc.player.closeContainer());
         }
+    }
+
+    /** Ouvre le conteneur comme un clic droit : le joueur le regarde, puis le serveur ouvre son menu. */
+    private static void openLookedAt(ClientGameTestContext context, TestServerContext server, BlockPos pos) {
+        context.getInput().lookAt(pos);
+        context.waitTicks(3);
+        server.runOnServer(s -> player(s).openMenu((MenuProvider) s.overworld().getBlockEntity(pos)));
+        context.waitForScreen(ContainerScreen.class);
+        context.waitTicks(2);
+    }
+
+    private static EditBox renameBox(Minecraft mc) {
+        return mc.gui.screen().children().stream()
+                .filter(c -> c instanceof EditBox box && box.getMessage().getString().equals("Rename container"))
+                .map(EditBox.class::cast)
+                .findFirst().orElseThrow(() -> new AssertionError("champ de renommage absent"));
+    }
+
+    private static void clickTitle(ClientGameTestContext context) {
+        double[] pos = context.computeOnClient(mc -> {
+            EeiScreenAccess screen = (EeiScreenAccess) mc.gui.screen();
+            int scale = mc.getWindow().getGuiScale();
+            return new double[]{(screen.eei$leftPos() + 12) * scale, (screen.eei$topPos() + screen.eei$titleLabelY() + 4) * scale};
+        });
+        context.getInput().setCursorPos(pos[0], pos[1]);
+        context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+        context.waitTick();
     }
 
     private static EditBox searchBox(Minecraft mc) {
         return mc.gui.screen().children().stream()
-                .filter(EditBox.class::isInstance).map(EditBox.class::cast)
+                .filter(c -> c instanceof EditBox box && box.getMessage().getString().equals("Item search"))
+                .map(EditBox.class::cast)
                 .findFirst().orElseThrow(() -> new AssertionError("barre de recherche absente"));
     }
 

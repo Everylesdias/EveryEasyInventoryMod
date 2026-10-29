@@ -9,5 +9,6 @@
   "message.everyeasyinventorymod.deposit": "%s items rangés dans %s conteneurs",
   "message.everyeasyinventorymod.deposit.none": "Rien à ranger à proximité",
   "search.everyeasyinventorymod.hint": "Rechercher un item…",
-  "search.everyeasyinventorymod.narration": "Recherche d'item"
+  "search.everyeasyinventorymod.narration": "Recherche d'item",
+  "rename.everyeasyinventorymod.narration": "Renommer le conteneur"
 }

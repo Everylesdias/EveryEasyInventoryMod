@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.logic;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -75,6 +76,19 @@ public final class ContainerFinder {
         BlockPos other = otherHalf(state, pos);
         Vec3 center = Vec3.atCenterOf(pos).add(Vec3.atCenterOf(other)).scale(0.5);
         return new Target(container, key(state, pos), center);
+    }
+
+    /** Nom donné au conteneur (enclume ou renommage), première moitié d'abord pour un coffre double, comme le jeu. */
+    public static @Nullable Component customName(Level level, BlockPos pos) {
+        BlockPos other = otherHalf(level.getBlockState(pos), pos);
+        BlockPos first = key(level.getBlockState(pos), pos);
+        BlockPos second = first.equals(pos) ? other : pos;
+        for (BlockPos half : new BlockPos[]{first, second}) {
+            if (level.getBlockEntity(half) instanceof BaseContainerBlockEntity base && base.getCustomName() != null) {
+                return base.getCustomName();
+            }
+        }
+        return null;
     }
 
     /**

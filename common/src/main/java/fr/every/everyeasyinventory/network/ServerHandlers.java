@@ -31,4 +31,8 @@ public final class ServerHandlers {
     public static void onSearch(Payloads.Search payload, ServerPlayer player) {
         ServerActions.search(player, payload.item().map(holder -> holder.value()));
     }
+
+    public static void onRename(Payloads.Rename payload, ServerPlayer player) {
+        ServerActions.rename(player, payload.containerId(), payload.pos(), payload.name());
+    }
 }

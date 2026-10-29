@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.logic;
 
 import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.mixin.BaseContainerBlockEntityAccessor;
 import fr.every.everyeasyinventory.network.Payloads;
 import fr.every.everyeasyinventory.platform.Services;
 import net.minecraft.core.BlockPos;
@@ -12,6 +13,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.StringUtil;
+import net.minecraft.world.CompoundContainer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -27,6 +30,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.WeatheringCopper;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
@@ -52,6 +56,8 @@ public final class ServerActions {
     private static final int MAX_HOLOGRAM_ENTRIES = 54;
     private static final double SEARCH_RADIUS = 10.0;
     private static final int MAX_SEARCH_RESULTS = 64;
+    /** Comme l'enclume. */
+    public static final int MAX_NAME_LENGTH = 50;
 
     private ServerActions() {
     }
@@ -250,10 +256,11 @@ public final class ServerActions {
         }
         List<ItemStack> iconList = new ArrayList<>(icons.values());
         List<Integer> countList = new ArrayList<>(counts.values());
-        int hash = Objects.hash(target.key(), icons.keySet(), countList);
+        Optional<Component> name = Optional.ofNullable(ContainerFinder.customName(player.level(), state.peekPos));
+        int hash = Objects.hash(target.key(), name, icons.keySet(), countList);
         if (force || hash != state.peekHash) {
             state.peekHash = hash;
-            Services.PLATFORM.sendToPlayer(player, new Payloads.PeekContents(target.key(), iconList, countList));
+            Services.PLATFORM.sendToPlayer(player, new Payloads.PeekContents(target.key(), name, iconList, countList));
         }
     }
 
@@ -279,6 +286,36 @@ public final class ServerActions {
         ItemStack icon = first.copyWithCount(1);
         icon.remove(DataComponents.DAMAGE);
         return icon;
+    }
+
+    // ---------------------------------------------------------------- renommage
+
+    /**
+     * Pose le nom vanilla du conteneur ouvert (les deux moitiés d'un coffre double), comme une enclume.
+     * Refusé si le menu ouvert n'est pas celui de ce conteneur ou si le joueur n'y a pas accès.
+     */
+    public static void rename(ServerPlayer player, int containerId, BlockPos pos, String text) {
+        AbstractContainerMenu menu = player.containerMenu;
+        ServerLevel level = (ServerLevel) player.level();
+        if (menu.containerId != containerId || !menu.stillValid(player) || menu.slots.isEmpty() || !level.isLoaded(pos)
+                || !(level.getBlockEntity(pos) instanceof BaseContainerBlockEntity blockEntity)
+                || !ContainerFinder.isSupported(blockEntity) || !ContainerFinder.canAccess(player, level, pos)) {
+            return;
+        }
+        Container shown = menu.slots.getFirst().container;
+        if (shown != blockEntity && !(shown instanceof CompoundContainer compound && compound.contains(blockEntity))) {
+            return;
+        }
+        String clean = StringUtil.truncateStringIfNecessary(StringUtil.filterText(text).trim(), MAX_NAME_LENGTH, false);
+        Component name = clean.isEmpty() ? null : Component.literal(clean);
+        BlockPos other = ContainerFinder.otherHalf(blockEntity.getBlockState(), pos);
+        for (BlockPos half : other.equals(pos) ? List.of(pos) : List.of(pos, other)) {
+            if (level.getBlockEntity(half) instanceof BaseContainerBlockEntity container) {
+                ((BaseContainerBlockEntityAccessor) container).eei$setName(name);
+                container.setChanged();
+            }
+        }
+        PlayerState.of(player).peekHash = 0;
     }
 
     // ---------------------------------------------------------------- recherche d'item

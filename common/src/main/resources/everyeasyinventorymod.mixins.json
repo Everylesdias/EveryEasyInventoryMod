@@ -4,13 +4,15 @@
   "package": "fr.every.everyeasyinventory.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
+    "BaseContainerBlockEntityAccessor",
     "ServerPlayerMixin"
   ],
   "client": [
     "AbstractContainerScreenMixin",
     "HudMixin",
     "LevelRendererMixin",
-    "MinecraftMixin"
+    "MinecraftMixin",
+    "ScreenAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -15,6 +15,7 @@ public class EveryEasyInventoryFabric implements ModInitializer {
         PayloadTypeRegistry.serverboundPlay().register(Payloads.LockedSlots.TYPE, Payloads.LockedSlots.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(Payloads.Peek.TYPE, Payloads.Peek.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(Payloads.Search.TYPE, Payloads.Search.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(Payloads.Rename.TYPE, Payloads.Rename.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(Payloads.PeekContents.TYPE, Payloads.PeekContents.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(Payloads.SearchResults.TYPE, Payloads.SearchResults.CODEC);
 
@@ -23,5 +24,6 @@ public class EveryEasyInventoryFabric implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(Payloads.LockedSlots.TYPE, (payload, context) -> ServerHandlers.onLockedSlots(payload, context.player()));
         ServerPlayNetworking.registerGlobalReceiver(Payloads.Peek.TYPE, (payload, context) -> ServerHandlers.onPeek(payload, context.player()));
         ServerPlayNetworking.registerGlobalReceiver(Payloads.Search.TYPE, (payload, context) -> ServerHandlers.onSearch(payload, context.player()));
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.Rename.TYPE, (payload, context) -> ServerHandlers.onRename(payload, context.player()));
     }
 }

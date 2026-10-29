@@ -187,14 +187,39 @@ Sans le mod sur le serveur, seules l'autocomplétion et la mise en évidence dan
   légèrement assombries.
 - **Contour jaune doré** dans le monde (même teinte que le cadenas).
 
-## 7. État de l'implémentation (v1.1.0, 2026-10-29)
+## 7. Renommer un conteneur (v1.2.0)
+
+**Demande** : renommer un coffre en cliquant sur son titre (« Coffre ») dans l'écran du coffre ; une fois
+renommé, son nom apparaît au-dessus de l'hologramme des items qu'il contient.
+
+### Choix validés (2026-10-29)
+
+- **Nom vanilla du bloc**, le même qu'avec une enclume : affiché en titre à l'ouverture (même pour un joueur
+  sans le mod), gardé quand on casse et repose le conteneur. Coffres (les deux moitiés d'un coffre double),
+  tonneaux, shulkers posées.
+- **Champ à la place du titre** : clic sur le titre → champ de texte ; Entrée valide, Échap annule sans fermer
+  le coffre, un clic ailleurs valide ; champ vidé = nom par défaut. Un petit crayon au survol du titre indique
+  qu'il est cliquable. 50 caractères au plus (comme l'enclume).
+- **Nom au-dessus de l'hologramme, même si le conteneur est vide.**
+- **Droits** : qui peut ouvrir le conteneur peut le renommer (mêmes garde-fous que le dépôt et l'hologramme).
+
+### Fonctionnement
+
+Le client envoie la position du conteneur visé à l'ouverture et le nouveau nom ; le serveur vérifie que le
+menu ouvert est bien celui de ce conteneur, que le joueur y a accès, nettoie le texte, puis pose le nom.
+Nécessite le mod sur le serveur : sans lui, le titre n'est pas cliquable. Coût : un paquet par renommage ;
+le nom voyage avec le résumé de l'hologramme déjà existant.
+
+## 8. État de l'implémentation (v1.2.0, 2026-10-29)
 
 Tout est codé pour les deux loaders. Le scénario de test en jeu passe sous Fabric
 (`./gradlew :fabric:runClientGameTest`) et sous NeoForge (`./gradlew :neoforge:runSelftest`) : rangement
 express, case verrouillée (Alt + clic) respectée, hologramme (regroupement du cuivre et totaux), tri, tout
 prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar, recherche d'item
 (autocomplétion, E sans effet pendant la saisie, cadre dans l'inventaire, seul le coffre proche dont une shulker
-a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = recherche arrêtée).
+a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = recherche arrêtée), renommage
+(clic sur le titre, Entrée, nom vanilla posé par le serveur, Échap annule sans fermer, nom au-dessus de
+l'hologramme même coffre vide, champ vidé = nom par défaut).
 
 Écarts et précisions par rapport à la conception :
 
@@ -213,10 +238,14 @@ a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = r
   ou au-dessous selon la place, 6 au plus (le nom qui commence par le texte d'abord, puis un mot du nom, puis
   n'importe où, puis l'identifiant). Modifier le texte après un choix annule la recherche jusqu'au prochain
   choix. Contour limité à 64 conteneurs et à 12 blocs de la caméra côté client.
+- **Renommage** : le conteneur est celui que le joueur visait à l'ouverture de l'écran ; ouvert autrement
+  (commande, autre mod), le titre n'est pas cliquable. Le titre de l'écran ouvert change tout de suite.
+- **Clics** : les raccourcis prennent la case sous la position du clic (et non la case survolée à l'image
+  précédente), comme la molette et Maj+glisser.
 - **Configuration** : `config/everyeasyinventorymod.json` (rayon, hotbar incluse, distance de
   l'hologramme, remplissage, hologramme activé, cases verrouillées). Pas encore d'écran de configuration.
 
-## 8. Journal des décisions
+## 9. Journal des décisions
 
 | Date | Décision |
 |---|---|
@@ -231,3 +260,4 @@ a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = r
 | 2026-10-29 | Licence : LGPL-3.0 (`LGPL-3.0-only`). |
 | 2026-10-29 | Cases verrouillées : petit cadenas dans le coin haut droit, sans teinte. |
 | 2026-10-29 | Recherche d'item (v1.1) : contour seulement si visible, jaune doré ; recherche par groupe, shulkers rangées comprises ; barre dans l'inventaire et les écrans de conteneur ; oubliée en quittant ; cadre + assombrissement dans l'inventaire ; analyse à la demande côté serveur (block entities des tronçons chargés, toutes les 10 ticks, seulement si recherche active). |
+| 2026-10-29 | Renommer un conteneur (v1.2) : nom vanilla du bloc, champ à la place du titre (Entrée / Échap / vide = défaut), nom au-dessus de l'hologramme même vide, droits = qui peut l'ouvrir. |

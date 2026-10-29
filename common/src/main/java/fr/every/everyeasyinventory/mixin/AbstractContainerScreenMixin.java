@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.mixin;
 
 import fr.every.everyeasyinventory.client.EeiScreenAccess;
+import fr.every.everyeasyinventory.client.RenameField;
 import fr.every.everyeasyinventory.client.ScreenTweaks;
 import fr.every.everyeasyinventory.client.SearchBar;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -34,6 +35,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Shadow protected int topPos;
     @Shadow @Final protected int imageWidth;
     @Shadow @Final protected int imageHeight;
+    @Shadow protected int titleLabelX;
     @Shadow protected int titleLabelY;
     @Shadow protected int inventoryLabelY;
 
@@ -49,6 +51,13 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     private final List<ScreenTweaks.Placed> eei$buttons = new ArrayList<>();
     @Unique
     private @Nullable SearchBar eei$searchBar;
+    @Unique
+    private @Nullable RenameField eei$renameField;
+    /** Le conteneur est identifié à la première ouverture (init est rappelé quand la fenêtre change de taille). */
+    @Unique
+    private boolean eei$renameChecked;
+    @Unique
+    private @Nullable RenameField eei$renameCandidate;
 
     protected AbstractContainerScreenMixin(Component title) {
         super(title);
@@ -68,6 +77,15 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (ScreenTweaks.hasSearchBar(this)) {
             eei$searchBar = new SearchBar(this);
             addRenderableWidget(eei$searchBar.box());
+        }
+        if (!eei$renameChecked) {
+            eei$renameChecked = true;
+            eei$renameCandidate = ScreenTweaks.isRenamable(this)
+                    ? RenameField.create(this, this, title -> ((ScreenAccessor) this).eei$setTitle(title)) : null;
+        }
+        eei$renameField = eei$renameCandidate;
+        if (eei$renameField != null) {
+            addRenderableWidget(eei$renameField.box());
         }
         eei$layoutButtons();
     }
@@ -89,11 +107,17 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (eei$searchBar != null) {
             eei$searchBar.layout(leftPos, topPos, imageWidth, imageHeight);
         }
+        if (eei$renameField != null) {
+            eei$renameField.layout(titleLabelX, ScreenTweaks.titleRowButtonsWidth(this));
+        }
     }
 
     /** Suggestions de la barre de recherche, par-dessus le contenu de l'écran. */
     @Inject(method = "extractContents", at = @At("TAIL"))
     private void eei$drawSuggestions(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
+        if (eei$renameField != null) {
+            eei$renameField.extractHover(graphics, mouseX, mouseY);
+        }
         if (eei$searchBar != null) {
             eei$searchBar.extractSuggestions(graphics);
         }
@@ -109,6 +133,10 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void eei$mouseClicked(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
+        if (eei$renameField != null && eei$renameField.mouseClicked(event)) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (eei$searchBar != null && eei$searchBar.mouseClicked(event)) {
             cir.setReturnValue(true);
             return;
@@ -139,6 +167,10 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void eei$keyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
+        if (eei$renameField != null && eei$renameField.keyPressed(event)) {
+            cir.setReturnValue(true);
+            return;
+        }
         // Barre de recherche active : les touches tapées ne ferment pas l'écran et ne déclenchent pas de raccourci.
         if (eei$searchBar != null && eei$searchBar.keyPressed(event)) {
             cir.setReturnValue(true);
