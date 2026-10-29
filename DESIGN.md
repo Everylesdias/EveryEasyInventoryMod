@@ -125,7 +125,62 @@ vérifie la distance et le droit d'ouvrir le coffre avant de répondre.
 Fichier de config par côté (client : affichage, touches ; serveur : rayon, conteneurs autorisés,
 hotbar incluse ou non). Écran de config : natif sous NeoForge, via Mod Menu sous Fabric.
 
-## 6. État de l'implémentation (v1.0.0, 2026-10-29)
+## 6. Recherche d'item (en conception, v1.1)
+
+**Demande** : une barre de recherche sous l'inventaire, avec autocomplétion. Une fois un item choisi,
+son nom reste dans la barre ; tant qu'elle n'est pas vidée :
+
+- l'item est mis en évidence dans l'inventaire s'il y est ;
+- sinon, les conteneurs à **10 blocs max** et dans le champ de vision qui le contiennent sont entourés.
+
+### Qui fait quoi
+
+| Partie | Où | Coût |
+|---|---|---|
+| Autocomplétion | client seul : liste des ~1 500 items du registre, noms traduits mis en cache une fois par langue | négligeable, rien sur le réseau |
+| Mise en évidence dans l'inventaire | client seul : 36 cases comparées à chaque image | négligeable |
+| Conteneurs qui ont l'item | **serveur** : le client ne connaît pas le contenu des coffres | voir ci-dessous |
+| Contour des conteneurs | client : quelques boîtes dessinées dans le monde | négligeable (plafond de 64 contours) |
+
+### Coût côté serveur (le point sensible)
+
+Le client envoie l'item cherché **une fois** (puis « recherche vidée »). Le serveur garde la recherche
+active du joueur et répond avec la liste des positions des conteneurs qui ont l'item.
+
+1. **Parcourir les block entities, pas les blocs.** Un cube de ±10 blocs fait 9 261 positions ; le rangement
+   express actuel teste chaque position. Pour la recherche, on parcourt plutôt la table des block entities
+   des 9 tronçons (chunks) au plus qui touchent la sphère : on ne regarde que les vrais conteneurs.
+   Ordre de grandeur : une salle de stockage dense de 500 coffres × 27 cases = 13 500 comparaisons
+   d'item, soit environ 0,1 ms.
+2. **Pas à chaque tick.** Nouvelle analyse toutes les 10 ticks (0,5 s) seulement pour les joueurs qui ont
+   une recherche active, et seulement s'ils ont bougé d'au moins un bloc ou si un conteneur proche a changé
+   (sinon on garde le dernier résultat). Avec 0,1 ms toutes les 10 ticks : 0,01 ms/tick par joueur,
+   donc 0,5 ms/tick pour 50 joueurs qui cherchent tous en même temps dans des salles pleines
+   (sur un budget de 50 ms). Les analyses des joueurs sont étalées sur les 10 ticks.
+3. **Paquets seulement quand le résultat change** (empreinte, comme l'hologramme) ; une liste de positions
+   fait quelques dizaines d'octets.
+4. **Jamais de chargement de tronçon** : seuls les tronçons déjà chargés sont lus.
+5. **Pas de cache global du contenu des coffres** : un index serait plus rapide à lire mais coûterait à
+   chaque modification de chaque coffre du serveur, même quand personne ne cherche. L'analyse à la
+   demande ne coûte que quand quelqu'un cherche.
+6. **Mêmes garde-fous que l'hologramme** : seulement les conteneurs que le joueur pourrait ouvrir
+   (protections, claims) ; les coffres de butin pas encore générés sont ignorés (on ne les génère pas).
+
+Le champ de vision est filtré **côté client** (le serveur renvoie tout ce qui est à 10 blocs, le client ne
+dessine que ce qui est devant la caméra) : aucun lancer de rayon côté serveur.
+
+Sans le mod sur le serveur, seules l'autocomplétion et la mise en évidence dans l'inventaire marchent.
+
+### Questions ouvertes
+
+- Contour visible **à travers les murs** ou seulement si le conteneur est directement visible ?
+- Recherche par **item exact** ou par **groupe** (comme l'hologramme : tous les cuivres, tous les états
+  d'usure) ?
+- Chercher aussi **dans les shulkers rangées dans les coffres** ?
+- Barre aussi dans les écrans de coffre, ou seulement dans l'inventaire ?
+- La recherche reste-t-elle active après avoir quitté le monde ?
+
+## 7. État de l'implémentation (v1.0.0, 2026-10-29)
 
 Tout est codé pour les deux loaders. Le scénario de test en jeu passe sous Fabric
 (`./gradlew :fabric:runClientGameTest`) et sous NeoForge (`./gradlew :neoforge:runSelftest`) : rangement
@@ -148,7 +203,7 @@ prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la 
 - **Configuration** : `config/everyeasyinventorymod.json` (rayon, hotbar incluse, distance de
   l'hologramme, remplissage, hologramme activé, cases verrouillées). Pas encore d'écran de configuration.
 
-## 7. Journal des décisions
+## 8. Journal des décisions
 
 | Date | Décision |
 |---|---|
