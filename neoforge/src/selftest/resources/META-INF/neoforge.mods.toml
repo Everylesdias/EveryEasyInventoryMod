@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
-license = "All-Rights-Reserved"
+license = "LGPL-3.0-only"
 [[mods]]
 modId = "eei_selftest"
 version = "1.0.0"

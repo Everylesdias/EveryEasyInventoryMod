@@ -14,7 +14,7 @@ java {
 }
 
 tasks.withType(Jar).configureEach {
-    from(rootProject.file('LICENSE')) {
+    from(rootProject.files('LICENSE', 'COPYING')) {
         rename { "${it}_${mod_name}" }
     }
 }

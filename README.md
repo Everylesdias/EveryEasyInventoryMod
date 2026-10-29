@@ -48,3 +48,8 @@ Le verdict (`OK` ou la vérification en échec) est dans `neoforge/runs/selftest
 les captures dans `neoforge/runs/selftest/screenshots`.
 
 Pour jouer en développement : `./gradlew :fabric:runClient` ou `./gradlew :neoforge:runClient`.
+
+## Licence
+
+[LGPL-3.0](LICENSE) (texte de la GPL-3.0 à laquelle elle renvoie : [COPYING](COPYING)).
+Vous pouvez utiliser, modifier et redistribuer le mod ; les modifications de son code doivent rester sous LGPL-3.0.
