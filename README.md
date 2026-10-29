@@ -1,57 +1,73 @@
+<p align="center"><img src="docs/icon/icon_512.png" width="128" alt="EveryEasyInventoryMod icon"></p>
+
 # EveryEasyInventoryMod
 
-Mod de gestion d'inventaire et de coffres pour Minecraft 26.3, en version Fabric et NeoForge.
-La conception et le journal des décisions sont dans [DESIGN.md](DESIGN.md).
+Inventory and chest management for Minecraft 26.3, for **Fabric** and **NeoForge**.
+*[Version française](README.fr.md)*
 
-## Fonctions
+## Features
 
-| Où | Quoi | Comment |
+| Where | What | How |
 |---|---|---|
-| Inventaire | Rangement express vers les coffres, tonneaux et shulkers à ±5 blocs qui contiennent déjà l'item | bouton **Envoyer** (en haut à gauche) |
-| Inventaire, coffres | Trier | bouton **⇅** ou touche **R** sur la partie survolée |
-| Coffres | Tout prendre / tout déposer / déposer ce qui est déjà présent | boutons **↓**, **↑**, **⇡** |
-| Partout | Envoyer toutes les piles survolées | **Maj + glisser** |
-| Partout | Envoyer tous les items du même type | **Ctrl + Maj + clic** |
-| Coffres | Envoyer / ramener un item | **molette** bas / haut |
-| Inventaire | Verrouiller une case (le tri et les dépôts n'y touchent pas) | **Alt + clic** |
-| En jeu | Hologramme du contenu du conteneur visé (≤ 3 blocs) | regarder le coffre |
-| En jeu | Remplacer la pile en main quand elle s'épuise ou que l'outil casse | automatique |
-| Coffres, tonneaux, shulkers | Renommer le conteneur (nom vanilla, comme l'enclume) ; le nom s'affiche au-dessus de l'hologramme | clic sur le **titre**, Entrée valide, Échap annule, vide = nom par défaut |
-| Inventaire, coffres | Chercher un item : il est encadré dans l'inventaire, et les conteneurs visibles à 10 blocs qui l'ont (shulkers rangées comprises) sont entourés | barre **Rechercher un item…** sous l'écran, autocomplétion (↑ ↓ Entrée) ; vider la barre arrête la recherche |
+| Inventory | Send items to the nearby chests, barrels and shulker boxes (±5 blocks) that already contain them | **Send** button (top left) |
+| Inventory, chests | Sort | **⇅** button, or **R** over the part to sort |
+| Chests | Take all / deposit all / deposit only what the chest already has | **↓**, **↑**, **⇡** buttons |
+| Everywhere | Move every stack you drag over | **Shift + drag** |
+| Everywhere | Move every item of the same type | **Ctrl + Shift + click** |
+| Chests | Move one item / bring one back | **scroll** down / up |
+| Inventory | Lock a slot: sorting and deposits leave it alone | **Alt + click** |
+| In world | Hologram of the container you look at (≤ 3 blocks), one slot per item type with its total | look at the chest |
+| In world | Refill the hand when a stack runs out or a tool breaks | automatic |
+| Chests, barrels, shulkers | Rename the container (vanilla name, like an anvil); the name shows above the hologram | click the **title**, Enter to confirm, Esc to cancel, empty = default name |
+| Inventory, chests | Search an item: matching slots are framed, and visible containers within 10 blocks that hold it (shulker boxes inside included) are outlined | **Search an item…** bar below the screen, with autocompletion (↑ ↓ Enter); clear it to stop |
 
-Le mod doit être installé sur le serveur pour le rangement express, le tri, l'hologramme, le
-remplissage de la hotbar, le renommage et le contour des conteneurs trouvés par la recherche (en solo, c'est automatique).
+The hologram, search and Send group item variants together (all copper oxidation and wax states, every
+durability or enchantment of the same tool).
 
-## Construire
+### Server
 
-Il faut un JDK 25 (Gradle le trouve dans `%USERPROFILE%\.jdks`).
+Install the mod on both sides for every feature (single player works out of the box). On a server without the
+mod, the in-screen features still work: take all, deposit all, scroll, Shift + drag, Ctrl + Shift + click,
+locked slots and highlighting in the inventory.
+
+Server-side work is kept small for servers with many chests: searches and holograms only read the containers
+of already loaded chunks near the players who use them, a few times per second at most, and packets are sent
+only when the result changes. Every action checks that the player may open the container (spawn protection,
+claim mods, locked containers).
+
+## Install
+
+- **Fabric**: Fabric Loader 0.19.5+ and [Fabric API](https://modrinth.com/mod/fabric-api).
+- **NeoForge**: NeoForge 26.3.
+- Java 25 (the default for Minecraft 26.3).
+
+Settings live in `config/everyeasyinventorymod.json` (deposit radius, hotbar included in Send, hologram
+distance, hand refill, hologram on/off).
+
+## Build
+
+Requires JDK 25.
 
 ```bash
 ./gradlew build
 ```
 
-Les jars sont dans `fabric/build/libs` et `neoforge/build/libs`.
+Jars are written to `fabric/build/libs` and `neoforge/build/libs`.
 
-## Tester
+## Test
 
 ```bash
 ./gradlew :fabric:runClientGameTest
 ```
 
-Lance un vrai client Fabric, crée un monde et vérifie tout le scénario ; les captures sont dans
-`fabric/build/run/clientGameTest/screenshots`.
-
 ```bash
 ./gradlew :neoforge:runSelftest
 ```
 
-Même scénario dans un vrai client NeoForge : le client crée un monde plat, joue le scénario et se ferme.
-Le verdict (`OK` ou la vérification en échec) est dans `neoforge/runs/selftest/eei_selftest_result.txt`,
-les captures dans `neoforge/runs/selftest/screenshots`.
+Each one starts a real client, creates a world and plays the whole scenario. The NeoForge verdict is written
+to `neoforge/runs/selftest/eei_selftest_result.txt`.
 
-Pour jouer en développement : `./gradlew :fabric:runClient` ou `./gradlew :neoforge:runClient`.
+## License
 
-## Licence
-
-[LGPL-3.0](LICENSE) (texte de la GPL-3.0 à laquelle elle renvoie : [COPYING](COPYING)).
-Vous pouvez utiliser, modifier et redistribuer le mod ; les modifications de son code doivent rester sous LGPL-3.0.
+[LGPL-3.0](LICENSE) (it builds on the GPL-3.0, included as [COPYING](COPYING)).
+You may use, modify and redistribute the mod; changes to its code must stay under the LGPL-3.0.

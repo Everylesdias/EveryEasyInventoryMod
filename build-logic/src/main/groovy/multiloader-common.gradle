@@ -50,6 +50,9 @@ processResources {
             'neoforge_version'             : neoforge_version,
             'neoforge_loader_version_range': neoforge_loader_version_range,
             'credits'                      : credits,
+            'homepage_url'                 : homepage_url,
+            'sources_url'                  : sources_url,
+            'issues_url'                   : issues_url,
             'java_version'                 : java_version
     ]
 
