@@ -125,7 +125,7 @@ vérifie la distance et le droit d'ouvrir le coffre avant de répondre.
 Fichier de config par côté (client : affichage, touches ; serveur : rayon, conteneurs autorisés,
 hotbar incluse ou non). Écran de config : natif sous NeoForge, via Mod Menu sous Fabric.
 
-## 6. Recherche d'item (en conception, v1.1)
+## 6. Recherche d'item (conçue, à implémenter en v1.1)
 
 **Demande** : une barre de recherche sous l'inventaire, avec autocomplétion. Une fois un item choisi,
 son nom reste dans la barre ; tant qu'elle n'est pas vidée :
@@ -171,14 +171,21 @@ dessine que ce qui est devant la caméra) : aucun lancer de rayon côté serveur
 
 Sans le mod sur le serveur, seules l'autocomplétion et la mise en évidence dans l'inventaire marchent.
 
-### Questions ouvertes
+### Choix validés (2026-10-29)
 
-- Contour visible **à travers les murs** ou seulement si le conteneur est directement visible ?
-- Recherche par **item exact** ou par **groupe** (comme l'hologramme : tous les cuivres, tous les états
-  d'usure) ?
-- Chercher aussi **dans les shulkers rangées dans les coffres** ?
-- Barre aussi dans les écrans de coffre, ou seulement dans l'inventaire ?
-- La recherche reste-t-elle active après avoir quitté le monde ?
+- **Contour seulement s'il est visible** : dessiné avec le test de profondeur normal, donc caché par les
+  blocs devant lui (un coffre au fond d'un mur de coffres n'est entouré que sur ses faces visibles).
+  Aucun coût en plus : c'est la carte graphique qui masque.
+- **Recherche par groupe**, comme l'hologramme : variantes de cuivre (oxydation, cire) regroupées ; usure,
+  enchantements, nom et autres composants ignorés.
+- **Dans les shulkers aussi** : un conteneur dont une shulker rangée contient l'item est entouré
+  (lecture du composant de contenu, 27 cases de plus par shulker ; pas de récursion plus profonde).
+- **Barre sous l'inventaire et sous les écrans de coffre, tonneau et shulker** ; dans un coffre, les
+  cases du coffre qui ont l'item sont aussi mises en évidence.
+- **Recherche oubliée en quittant** le monde ou le serveur.
+- **Mise en évidence dans l'inventaire** : fin cadre lumineux autour des cases qui ont l'item, les autres
+  légèrement assombries.
+- **Contour jaune doré** dans le monde (même teinte que le cadenas).
 
 ## 7. État de l'implémentation (v1.0.0, 2026-10-29)
 
@@ -216,3 +223,5 @@ prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la 
 | 2026-10-29 | Propositions restantes validées telles quelles : zone ±5 blocs (11×11×11), ordre de rangement (piles identiques puis cases vides d'un conteneur qui a déjà l'item), regroupement de l'hologramme, tri par ordre des onglets créatifs, tri en haut à droite et « Envoyer » en haut à gauche, structure multi-loader sans Architectury. |
 | 2026-10-29 | Pas d'écran de configuration (le fichier JSON suffit) ; la touche `R` reste fixe. |
 | 2026-10-29 | Licence : LGPL-3.0 (`LGPL-3.0-only`). |
+| 2026-10-29 | Cases verrouillées : petit cadenas dans le coin haut droit, sans teinte. |
+| 2026-10-29 | Recherche d'item (v1.1) : contour seulement si visible, jaune doré ; recherche par groupe, shulkers rangées comprises ; barre dans l'inventaire et les écrans de conteneur ; oubliée en quittant ; cadre + assombrissement dans l'inventaire ; analyse à la demande côté serveur (block entities des tronçons chargés, toutes les 10 ticks, seulement si recherche active). |
