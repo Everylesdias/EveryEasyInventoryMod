@@ -186,9 +186,9 @@ public final class ScreenTweaks {
      * Molette vers le bas : envoie un item de la case survolée de l'autre côté.
      * Molette vers le haut : ramène un item identique de l'autre côté dans la case survolée.
      */
-    public static boolean mouseScrolled(EeiScreenAccess access, double scrollY) {
+    public static boolean mouseScrolled(EeiScreenAccess access, double x, double y, double scrollY) {
         AbstractContainerMenu menu = access.eei$menu();
-        Slot slot = access.eei$hoveredSlot();
+        Slot slot = access.eei$slotAt(x, y);
         if (scrollY == 0 || slot == null || !slot.hasItem() || !menu.getCarried().isEmpty()
                 || !ServerActions.isSortableMenu(menu) || slot.getItem().has(DataComponents.BUNDLE_CONTENTS)) {
             return false;

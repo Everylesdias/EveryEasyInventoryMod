@@ -26,3 +26,4 @@ build.log
 gametest.log
 runclient.log
 neoclient.log
+selftest.log

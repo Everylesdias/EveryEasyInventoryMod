@@ -104,7 +104,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
     private void eei$mouseScrolled(double x, double y, double scrollX, double scrollY, CallbackInfoReturnable<Boolean> cir) {
-        if (!ScreenTweaks.isExcluded(this) && ScreenTweaks.mouseScrolled(this, scrollY)) {
+        if (!ScreenTweaks.isExcluded(this) && ScreenTweaks.mouseScrolled(this, x, y, scrollY)) {
             cir.setReturnValue(true);
         }
     }

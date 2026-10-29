@@ -37,5 +37,14 @@ Les jars sont dans `fabric/build/libs` et `neoforge/build/libs`.
 ```
 
 Lance un vrai client Fabric, crée un monde et vérifie tout le scénario ; les captures sont dans
-`fabric/build/run/clientGameTest/screenshots`. Pour jouer en développement : `./gradlew :fabric:runClient`
-ou `./gradlew :neoforge:runClient`.
+`fabric/build/run/clientGameTest/screenshots`.
+
+```bash
+./gradlew :neoforge:runSelftest
+```
+
+Même scénario dans un vrai client NeoForge : le client crée un monde plat, joue le scénario et se ferme.
+Le verdict (`OK` ou la vérification en échec) est dans `neoforge/runs/selftest/eei_selftest_result.txt`,
+les captures dans `neoforge/runs/selftest/screenshots`.
+
+Pour jouer en développement : `./gradlew :fabric:runClient` ou `./gradlew :neoforge:runClient`.

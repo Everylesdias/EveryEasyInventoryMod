@@ -3,8 +3,17 @@ plugins {
     id 'net.neoforged.moddev'
 }
 
+// Scénario de test en monde (pendant du gametest client Fabric) : ./gradlew :neoforge:runSelftest
+sourceSets {
+    selftest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 neoForge {
     version = neoforge_version
+    addModdingDependenciesTo(sourceSets.selftest)
     // Automatically enable neoforge AccessTransformers if the file exists
     def at = project(':common').file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
@@ -18,6 +27,12 @@ neoForge {
         client {
             client()
             gameDirectory = this.mkdir(this.file('runs/client'))
+        }
+        selftest {
+            client()
+            gameDirectory = this.mkdir(this.file('runs/selftest'))
+            sourceSet = sourceSets.selftest
+            systemProperty('eei.selftest', 'true')
         }
         data {
             clientData()
@@ -35,6 +50,9 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet sourceSets.main
+        }
+        eei_selftest {
+            sourceSet sourceSets.selftest
         }
     }
 }

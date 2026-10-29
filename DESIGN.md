@@ -127,10 +127,10 @@ hotbar incluse ou non). Écran de config : natif sous NeoForge, via Mod Menu sou
 
 ## 6. État de l'implémentation (v1.0.0, 2026-10-29)
 
-Tout est codé pour les deux loaders. Le scénario de test en jeu (`./gradlew :fabric:runClientGameTest`)
-passe sous Fabric : rangement express, case verrouillée respectée, hologramme (regroupement du cuivre et
-totaux), tri, tout prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar.
-Sous NeoForge, le jeu démarre sans erreur ; le scénario n'y a pas encore été rejoué en monde.
+Tout est codé pour les deux loaders. Le scénario de test en jeu passe sous Fabric
+(`./gradlew :fabric:runClientGameTest`) et sous NeoForge (`./gradlew :neoforge:runSelftest`) : rangement
+express, case verrouillée (Alt + clic) respectée, hologramme (regroupement du cuivre et totaux), tri, tout
+prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar.
 
 Écarts et précisions par rapport à la conception :
 
