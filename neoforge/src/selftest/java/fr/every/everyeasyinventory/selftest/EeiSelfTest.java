@@ -18,10 +18,13 @@ import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
@@ -50,7 +53,7 @@ import net.neoforged.neoforge.common.NeoForge;
 /**
  * Même scénario que le gametest client Fabric, joué dans un vrai client NeoForge avec un monde solo :
  * rangement express, case verrouillée (Alt + clic), hologramme, tri, tout prendre / tout déposer, molette,
- * Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar.
+ * Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar, recherche d'item.
  * Lancer avec {@code ./gradlew :neoforge:runSelftest} ; le client se ferme à la fin et écrit le verdict dans
  * neoforge/runs/selftest/eei_selftest_result.txt (captures dans neoforge/runs/selftest/screenshots).
  *
@@ -281,9 +284,97 @@ public class EeiSelfTest {
             check(inv.getItem(1).is(Items.TORCH) && inv.getItem(1).getCount() == 30, "remplissage : 30 torches en main ; case 1 = " + inv.getItem(1));
             check(inv.getItem(20).isEmpty(), "remplissage : la réserve doit être prise");
         });
+
+        // ---- Recherche d'item : un diamant dans l'inventaire, d'autres dans une shulker rangée dans un coffre proche
+        BlockPos shulkerChest = feet.offset(0, 0, 3);
+        BlockPos farDiamonds = feet.offset(0, 0, -12);
+        setBlock(shulkerChest, "chest");
+        setBlock(farDiamonds, "chest");
+        putInBlock(shulkerChest, 0, "shulker_box[container=[{slot:0,item:{id:\"minecraft:diamond\",count:3}}]] 1");
+        putInBlock(farDiamonds, 0, "diamond 5");
+        putInPlayer("inventory.6", "diamond 1"); // case 15
+        waitTicks(5);
+
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+        clickSearchBox();
+        typeText("Diam");
+        pressKey(InputConstants.KEY_E); // ne doit pas fermer l'inventaire
+        check(onClient(mc -> mc.gui.screen() instanceof InventoryScreen), "taper E dans la barre ne doit pas fermer l'inventaire");
+        waitTicks(2);
+        screenshot("eei_6_recherche_suggestions");
+        pressKey(InputConstants.KEY_RETURN);
+        waitTicks(2);
+        check(onClient(mc -> ClientState.searchItem() == Items.DIAMOND), "Entrée doit choisir le diamant : " + onClient(mc -> ClientState.searchItem()));
+        check(onClient(mc -> searchBoxValue(mc)).equals("Diamond"), "le nom choisi reste dans la barre");
+        screenshot("eei_7_recherche_inventaire");
+
+        client(mc -> mc.player.closeContainer());
+        waitFor("résultats de recherche", mc -> !ClientState.searchResults().isEmpty(), 100);
+        check(onClient(mc -> ClientState.searchResults()).equals(java.util.List.of(shulkerChest)),
+                "seul le coffre à la shulker est trouvé : " + onClient(mc -> ClientState.searchResults()));
+        client(mc -> mc.player.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(shulkerChest)));
+        waitTicks(5);
+        screenshot("eei_8_recherche_contour");
+
+        // Le diamant quitte la shulker : le coffre n'est plus entouré.
+        server(s -> container(s, shulkerChest).clearContent());
+        waitFor("coffre vidé retiré des résultats", mc -> ClientState.searchResults().isEmpty(), 100);
+
+        // Vider la barre arrête la recherche.
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+        check(onClient(mc -> searchBoxValue(mc)).equals("Diamond"), "la recherche suit le joueur d'un écran à l'autre");
+        clickSearchBox();
+        pressKey(InputConstants.KEY_END); // le clic a mis le curseur au début du texte
+        for (int i = 0; i < "Diamond".length(); i++) {
+            pressKey(InputConstants.KEY_BACKSPACE);
+        }
+        waitTicks(2);
+        check(onClient(mc -> ClientState.searchItem() == null && ClientState.searchMembers().isEmpty()), "barre vidée : plus de recherche ; barre = \"" + onClient(EeiSelfTest::searchBoxValue) + "\", item = " + onClient(mc -> ClientState.searchItem()) + ", focus = " + onClient(mc -> searchBox(mc).isFocused()));
+        client(mc -> mc.player.closeContainer());
     }
 
     // ---------------------------------------------------------------- entrées
+
+    private static EditBox searchBox(Minecraft mc) {
+        return mc.gui.screen().children().stream()
+                .filter(EditBox.class::isInstance).map(EditBox.class::cast)
+                .findFirst().orElseThrow(() -> new AssertionError("barre de recherche absente"));
+    }
+
+    private static String searchBoxValue(Minecraft mc) {
+        return searchBox(mc).getValue();
+    }
+
+    private static void clickSearchBox() {
+        client(mc -> {
+            EditBox box = searchBox(mc);
+            MouseButtonEvent event = new MouseButtonEvent(box.getX() + 4, box.getY() + box.getHeight() / 2.0,
+                    new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0));
+            mc.gui.screen().mouseClicked(event, false);
+            mc.gui.screen().mouseReleased(event);
+            check(box.isFocused(), "un clic doit donner le focus à la barre");
+        });
+    }
+
+    private static void typeText(String text) {
+        client(mc -> text.codePoints().forEach(c -> mc.gui.screen().charTyped(new CharacterEvent(c))));
+    }
+
+    /** Touche avec son code de touche (que lit {@code EditBox}) en plus de son code physique. */
+    private static void pressKey(int key) {
+        int keycode = switch (key) {
+            case InputConstants.KEY_BACKSPACE -> 8;
+            case InputConstants.KEY_RETURN -> 13;
+            case InputConstants.KEY_END -> 1073741901;
+            case InputConstants.KEY_E -> 'e';
+            default -> 0;
+        };
+        client(mc -> mc.gui.screen().keyPressed(new KeyEvent(key, keycode, 0)));
+    }
 
     /** Clic gauche au centre d'une case du menu ouvert, avec ces modificateurs. */
     private static void clickSlot(int menuSlot, int modifiers) {

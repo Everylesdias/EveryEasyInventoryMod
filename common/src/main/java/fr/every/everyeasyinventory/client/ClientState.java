@@ -2,19 +2,23 @@ package fr.every.everyeasyinventory.client;
 
 import fr.every.everyeasyinventory.config.EeiConfig;
 import fr.every.everyeasyinventory.logic.ContainerFinder;
+import fr.every.everyeasyinventory.logic.ItemSearch;
 import fr.every.everyeasyinventory.network.Payloads;
 import fr.every.everyeasyinventory.platform.Services;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * État côté client : présence du mod sur le serveur, conteneur visé, dernier résumé reçu pour l'hologramme.
+ * État côté client : présence du mod sur le serveur, conteneur visé, dernier résumé reçu pour l'hologramme, recherche d'item.
  */
 public final class ClientState {
 
@@ -24,6 +28,12 @@ public final class ClientState {
     static @Nullable BlockPos targetBlock;
     static Payloads.@Nullable PeekContents contents;
     private static boolean lockedSlotsSent;
+
+    /** Recherche d'item : texte de la barre (gardé d'un écran à l'autre), item choisi, son groupe et les conteneurs trouvés. */
+    private static String searchText = "";
+    private static @Nullable Item searchItem;
+    private static Set<Item> searchMembers = Set.of();
+    private static List<BlockPos> searchResults = List.of();
 
     private ClientState() {
     }
@@ -55,8 +65,53 @@ public final class ClientState {
         }
     }
 
+    // ---------------------------------------------------------------- recherche d'item
+
+    public static String searchText() {
+        return searchText;
+    }
+
+    public static @Nullable Item searchItem() {
+        return searchItem;
+    }
+
+    /** Groupe de l'item cherché (vide sans recherche). */
+    public static Set<Item> searchMembers() {
+        return searchMembers;
+    }
+
+    /** Conteneurs proches qui ont l'item cherché (positions clés), selon le serveur. */
+    public static List<BlockPos> searchResults() {
+        return searchResults;
+    }
+
+    /** Nouveau texte de la barre ; {@code item} est l'item choisi, ou {@code null} tant qu'aucun n'est choisi. */
+    public static void setSearch(String text, @Nullable Item item) {
+        searchText = text;
+        if (item == searchItem) {
+            return;
+        }
+        searchItem = item;
+        searchMembers = item == null ? Set.of() : ItemSearch.members(item);
+        searchResults = List.of();
+        if (serverHasMod()) {
+            Services.PLATFORM.sendToServer(new Payloads.Search(Optional.ofNullable(item).map(Item::builtInRegistryHolder)));
+        }
+    }
+
+    public static void onSearchResults(Payloads.SearchResults payload) {
+        searchResults = searchItem == null ? List.of() : payload.containers();
+    }
+
     /** Appelé à la fin de chaque tick client. */
     public static void tick(Minecraft minecraft) {
+        if (minecraft.level == null) {
+            // Recherche oubliée en quittant le monde ou le serveur.
+            searchText = "";
+            searchItem = null;
+            searchMembers = Set.of();
+            searchResults = List.of();
+        }
         if (minecraft.player == null || minecraft.level == null || !serverHasMod()) {
             lockedSlotsSent = false;
             target = null;

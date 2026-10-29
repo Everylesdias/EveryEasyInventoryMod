@@ -7,5 +7,7 @@
   "button.everyeasyinventorymod.deposit_all": "Tout déposer (hotbar exclue)",
   "button.everyeasyinventorymod.deposit_matching": "Déposer les items déjà présents",
   "message.everyeasyinventorymod.deposit": "%s items rangés dans %s conteneurs",
-  "message.everyeasyinventorymod.deposit.none": "Rien à ranger à proximité"
+  "message.everyeasyinventorymod.deposit.none": "Rien à ranger à proximité",
+  "search.everyeasyinventorymod.hint": "Rechercher un item…",
+  "search.everyeasyinventorymod.narration": "Recherche d'item"
 }

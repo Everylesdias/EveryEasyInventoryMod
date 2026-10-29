@@ -4,6 +4,7 @@ import fr.every.everyeasyinventory.config.EeiConfig;
 import fr.every.everyeasyinventory.network.Payloads;
 import fr.every.everyeasyinventory.platform.Services;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -26,6 +27,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.WeatheringCopper;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -47,6 +50,8 @@ public final class ServerActions {
     private static final int MAIN_START = Inventory.getSelectionSize();
     private static final int MAIN_END = 36;
     private static final int MAX_HOLOGRAM_ENTRIES = 54;
+    private static final double SEARCH_RADIUS = 10.0;
+    private static final int MAX_SEARCH_RESULTS = 64;
 
     private ServerActions() {
     }
@@ -276,6 +281,62 @@ public final class ServerActions {
         return icon;
     }
 
+    // ---------------------------------------------------------------- recherche d'item
+
+    public static void search(ServerPlayer player, Optional<Item> item) {
+        PlayerState state = PlayerState.of(player);
+        state.searchMembers = item.filter(i -> i != Items.AIR).map(ItemSearch::members).orElse(Set.of());
+        state.searchPos = null;
+        state.searchHash = 0;
+        if (!state.searchMembers.isEmpty()) {
+            scanSearch(player, state, true);
+        }
+    }
+
+    /**
+     * Conteneurs à {@link #SEARCH_RADIUS} blocs des yeux qui ont l'item cherché. On ne parcourt que les block entities
+     * des tronçons déjà chargés qui touchent la sphère, jamais chaque position, et on ne charge aucun tronçon.
+     */
+    private static void scanSearch(ServerPlayer player, PlayerState state, boolean force) {
+        ServerLevel level = (ServerLevel) player.level();
+        Vec3 eyes = player.getEyePosition();
+        double maxSqr = SEARCH_RADIUS * SEARCH_RADIUS;
+        int minChunkX = SectionPos.blockToSectionCoord(eyes.x - SEARCH_RADIUS);
+        int maxChunkX = SectionPos.blockToSectionCoord(eyes.x + SEARCH_RADIUS);
+        int minChunkZ = SectionPos.blockToSectionCoord(eyes.z - SEARCH_RADIUS);
+        int maxChunkZ = SectionPos.blockToSectionCoord(eyes.z + SEARCH_RADIUS);
+        Set<BlockPos> seen = new HashSet<>();
+        List<ContainerFinder.Target> found = new ArrayList<>();
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
+                if (chunk == null) {
+                    continue;
+                }
+                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                    BlockPos pos = blockEntity.getBlockPos();
+                    if (!ContainerFinder.isSupported(blockEntity) || Vec3.atCenterOf(pos).distanceToSqr(eyes) > maxSqr
+                            || !seen.add(ContainerFinder.key(blockEntity.getBlockState(), pos))) {
+                        continue;
+                    }
+                    ContainerFinder.Target target = ContainerFinder.find(level, pos);
+                    if (target != null && ContainerFinder.canAccess(player, level, pos)
+                            && ItemSearch.contains(target.container(), state.searchMembers)) {
+                        found.add(target);
+                    }
+                }
+            }
+        }
+        found.sort(Comparator.comparingDouble(target -> target.center().distanceToSqr(eyes)));
+        List<BlockPos> keys = found.stream().limit(MAX_SEARCH_RESULTS).map(ContainerFinder.Target::key).toList();
+        state.searchPos = player.blockPosition();
+        int hash = keys.hashCode() * 31 + 1;
+        if (force || hash != state.searchHash) {
+            state.searchHash = hash;
+            Services.PLATFORM.sendToPlayer(player, new Payloads.SearchResults(keys));
+        }
+    }
+
     // ---------------------------------------------------------------- tick
 
     public static void tick(ServerPlayer player) {
@@ -286,6 +347,11 @@ public final class ServerActions {
             } else {
                 state.peekPos = null;
             }
+        }
+        // Recherche : toutes les 10 ticks si le joueur a bougé, sinon toutes les 20 pour voir les coffres qui changent.
+        if (!state.searchMembers.isEmpty() && player.tickCount % 10 == 0
+                && (player.tickCount % 20 == 0 || !player.blockPosition().equals(state.searchPos))) {
+            scanSearch(player, state, false);
         }
         if (EeiConfig.get().hotbarRefill) {
             refillHotbar(player, state);

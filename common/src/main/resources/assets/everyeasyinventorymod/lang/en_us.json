@@ -7,5 +7,7 @@
   "button.everyeasyinventorymod.deposit_all": "Deposit all (hotbar excluded)",
   "button.everyeasyinventorymod.deposit_matching": "Deposit matching items",
   "message.everyeasyinventorymod.deposit": "%s items stored in %s containers",
-  "message.everyeasyinventorymod.deposit.none": "Nothing to store nearby"
+  "message.everyeasyinventorymod.deposit.none": "Nothing to store nearby",
+  "search.everyeasyinventorymod.hint": "Search an item…",
+  "search.everyeasyinventorymod.narration": "Item search"
 }

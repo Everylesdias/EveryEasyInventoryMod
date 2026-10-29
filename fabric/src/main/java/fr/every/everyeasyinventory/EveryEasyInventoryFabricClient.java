@@ -10,5 +10,6 @@ public class EveryEasyInventoryFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(Payloads.PeekContents.TYPE, (payload, context) -> ClientState.onPeekContents(payload));
+        ClientPlayNetworking.registerGlobalReceiver(Payloads.SearchResults.TYPE, (payload, context) -> ClientState.onSearchResults(payload));
     }
 }

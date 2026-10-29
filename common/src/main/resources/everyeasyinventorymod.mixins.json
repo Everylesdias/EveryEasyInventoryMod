@@ -9,6 +9,7 @@
   "client": [
     "AbstractContainerScreenMixin",
     "HudMixin",
+    "LevelRendererMixin",
     "MinecraftMixin"
   ],
   "injectors": {

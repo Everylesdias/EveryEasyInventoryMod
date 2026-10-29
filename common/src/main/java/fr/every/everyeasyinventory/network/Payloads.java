@@ -2,11 +2,13 @@ package fr.every.everyeasyinventory.network;
 
 import fr.every.everyeasyinventory.Constants;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
@@ -86,6 +88,32 @@ public final class Payloads {
 
         @Override
         public Type<PeekContents> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client → serveur : item cherché dans la barre de recherche, ou recherche vidée. */
+    public record Search(Optional<Holder<Item>> item) implements CustomPacketPayload {
+        public static final Type<Search> TYPE = createType("search");
+        public static final StreamCodec<RegistryFriendlyByteBuf, Search> CODEC = StreamCodec.composite(
+                ByteBufCodecs.optional(Item.STREAM_CODEC), Search::item,
+                Search::new);
+
+        @Override
+        public Type<Search> type() {
+            return TYPE;
+        }
+    }
+
+    /** Serveur → client : conteneurs proches qui ont l'item cherché (position clé de chacun, du plus proche au plus loin). */
+    public record SearchResults(List<BlockPos> containers) implements CustomPacketPayload {
+        public static final Type<SearchResults> TYPE = createType("search_results");
+        public static final StreamCodec<RegistryFriendlyByteBuf, SearchResults> CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list()), SearchResults::containers,
+                SearchResults::new);
+
+        @Override
+        public Type<SearchResults> type() {
             return TYPE;
         }
     }

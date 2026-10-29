@@ -27,4 +27,8 @@ public final class ServerHandlers {
     public static void onPeek(Payloads.Peek payload, ServerPlayer player) {
         ServerActions.peek(player, payload.pos());
     }
+
+    public static void onSearch(Payloads.Search payload, ServerPlayer player) {
+        ServerActions.search(player, payload.item().map(holder -> holder.value()));
+    }
 }

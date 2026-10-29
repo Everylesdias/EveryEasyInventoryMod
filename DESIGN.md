@@ -125,7 +125,7 @@ vérifie la distance et le droit d'ouvrir le coffre avant de répondre.
 Fichier de config par côté (client : affichage, touches ; serveur : rayon, conteneurs autorisés,
 hotbar incluse ou non). Écran de config : natif sous NeoForge, via Mod Menu sous Fabric.
 
-## 6. Recherche d'item (conçue, à implémenter en v1.1)
+## 6. Recherche d'item (v1.1.0)
 
 **Demande** : une barre de recherche sous l'inventaire, avec autocomplétion. Une fois un item choisi,
 son nom reste dans la barre ; tant qu'elle n'est pas vidée :
@@ -152,9 +152,9 @@ active du joueur et répond avec la liste des positions des conteneurs qui ont l
    des 9 tronçons (chunks) au plus qui touchent la sphère : on ne regarde que les vrais conteneurs.
    Ordre de grandeur : une salle de stockage dense de 500 coffres × 27 cases = 13 500 comparaisons
    d'item, soit environ 0,1 ms.
-2. **Pas à chaque tick.** Nouvelle analyse toutes les 10 ticks (0,5 s) seulement pour les joueurs qui ont
-   une recherche active, et seulement s'ils ont bougé d'au moins un bloc ou si un conteneur proche a changé
-   (sinon on garde le dernier résultat). Avec 0,1 ms toutes les 10 ticks : 0,01 ms/tick par joueur,
+2. **Pas à chaque tick.** Nouvelle analyse seulement pour les joueurs qui ont une recherche active :
+   toutes les 10 ticks (0,5 s) s'ils ont changé de bloc, sinon toutes les 20 ticks (1 s) pour voir les
+   conteneurs dont le contenu a changé. Avec 0,1 ms toutes les 10 ticks : 0,01 ms/tick par joueur,
    donc 0,5 ms/tick pour 50 joueurs qui cherchent tous en même temps dans des salles pleines
    (sur un budget de 50 ms). Les analyses des joueurs sont étalées sur les 10 ticks.
 3. **Paquets seulement quand le résultat change** (empreinte, comme l'hologramme) ; une liste de positions
@@ -187,12 +187,14 @@ Sans le mod sur le serveur, seules l'autocomplétion et la mise en évidence dan
   légèrement assombries.
 - **Contour jaune doré** dans le monde (même teinte que le cadenas).
 
-## 7. État de l'implémentation (v1.0.0, 2026-10-29)
+## 7. État de l'implémentation (v1.1.0, 2026-10-29)
 
 Tout est codé pour les deux loaders. Le scénario de test en jeu passe sous Fabric
 (`./gradlew :fabric:runClientGameTest`) et sous NeoForge (`./gradlew :neoforge:runSelftest`) : rangement
 express, case verrouillée (Alt + clic) respectée, hologramme (regroupement du cuivre et totaux), tri, tout
-prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar.
+prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar, recherche d'item
+(autocomplétion, E sans effet pendant la saisie, cadre dans l'inventaire, seul le coffre proche dont une shulker
+a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = recherche arrêtée).
 
 Écarts et précisions par rapport à la conception :
 
@@ -207,6 +209,10 @@ prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la 
   déverrouille une case de l'inventaire ; molette bas/haut = envoyer / ramener un item.
 - **Remplissage de la hotbar** : désactivé pendant qu'un conteneur est ouvert (sinon déposer le dernier
   item tenu en main le remplacerait aussitôt).
+- **Recherche** : barre sous l'image de l'écran (au-dessus si elle n'a pas la place), suggestions au-dessus
+  ou au-dessous selon la place, 6 au plus (le nom qui commence par le texte d'abord, puis un mot du nom, puis
+  n'importe où, puis l'identifiant). Modifier le texte après un choix annule la recherche jusqu'au prochain
+  choix. Contour limité à 64 conteneurs et à 12 blocs de la caméra côté client.
 - **Configuration** : `config/everyeasyinventorymod.json` (rayon, hotbar incluse, distance de
   l'hologramme, remplissage, hologramme activé, cases verrouillées). Pas encore d'écran de configuration.
 

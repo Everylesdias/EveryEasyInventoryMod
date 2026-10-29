@@ -16,9 +16,10 @@ La conception et le journal des décisions sont dans [DESIGN.md](DESIGN.md).
 | Inventaire | Verrouiller une case (le tri et les dépôts n'y touchent pas) | **Alt + clic** |
 | En jeu | Hologramme du contenu du conteneur visé (≤ 3 blocs) | regarder le coffre |
 | En jeu | Remplacer la pile en main quand elle s'épuise ou que l'outil casse | automatique |
+| Inventaire, coffres | Chercher un item : il est encadré dans l'inventaire, et les conteneurs visibles à 10 blocs qui l'ont (shulkers rangées comprises) sont entourés | barre **Rechercher un item…** sous l'écran, autocomplétion (↑ ↓ Entrée) ; vider la barre arrête la recherche |
 
-Le mod doit être installé sur le serveur pour le rangement express, le tri, l'hologramme et le
-remplissage de la hotbar (en solo, c'est automatique).
+Le mod doit être installé sur le serveur pour le rangement express, le tri, l'hologramme, le
+remplissage de la hotbar et le contour des conteneurs trouvés par la recherche (en solo, c'est automatique).
 
 ## Construire
 

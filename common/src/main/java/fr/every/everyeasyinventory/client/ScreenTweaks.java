@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.client;
 
 import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.logic.ItemSearch;
 import fr.every.everyeasyinventory.logic.ServerActions;
 import fr.every.everyeasyinventory.network.Payloads;
 import fr.every.everyeasyinventory.platform.Services;
@@ -9,8 +10,10 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -38,6 +41,8 @@ public final class ScreenTweaks {
     private static final int BUTTON_SIZE = 11;
     private static final int LOCK_COLOR = 0xCCE0C060;
     private static final int LOCK_SHADOW = 0x66000000;
+    private static final int SEARCH_FRAME = 0xFFE0C060;
+    private static final int SEARCH_DIM = 0x78000000;
 
     /** Bouton et sa position relative au coin haut gauche de l'image de l'écran. */
     public record Placed(Button button, int dx, int dy) {
@@ -51,6 +56,11 @@ public final class ScreenTweaks {
 
     public static boolean isExcluded(Screen screen) {
         return screen instanceof CreativeModeInventoryScreen;
+    }
+
+    /** Barre de recherche dans l'inventaire du joueur et les écrans de coffre, tonneau et shulker. */
+    public static boolean hasSearchBar(Screen screen) {
+        return screen instanceof InventoryScreen || screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen;
     }
 
     // ---------------------------------------------------------------- boutons
@@ -264,6 +274,24 @@ public final class ScreenTweaks {
                 int y = slot.y + 1;
                 drawPadlock(graphics, x + 1, y + 1, LOCK_SHADOW);
                 drawPadlock(graphics, x, y, LOCK_COLOR);
+            }
+        }
+    }
+
+    /** Recherche active : cadre doré autour des cases qui ont l'item, les autres assombries. */
+    public static void drawSearch(EeiScreenAccess access, GuiGraphicsExtractor graphics) {
+        Set<Item> members = ClientState.searchMembers();
+        if (members.isEmpty()) {
+            return;
+        }
+        for (Slot slot : access.eei$menu().slots) {
+            if (!slot.isActive()) {
+                continue;
+            }
+            if (ItemSearch.matches(slot.getItem(), members)) {
+                graphics.outline(slot.x - 1, slot.y - 1, 18, 18, SEARCH_FRAME);
+            } else {
+                graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, SEARCH_DIM);
             }
         }
     }

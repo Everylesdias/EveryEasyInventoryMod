@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
@@ -22,9 +23,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.util.List;
+
 /**
  * Scénario de bout en bout dans un vrai client avec un monde solo :
- * rangement express, cases verrouillées, hologramme, tri, tout prendre / tout déposer, remplissage de la hotbar.
+ * rangement express, cases verrouillées, hologramme, tri, tout prendre / tout déposer, remplissage de la hotbar, recherche d'item.
  * Lancer avec {@code ./gradlew :fabric:runClientGameTest} ; les captures sont dans fabric/build/run/clientGameTest/screenshots.
  */
 public class EeiClientGameTest implements FabricClientGameTest {
@@ -200,7 +203,72 @@ public class EeiClientGameTest implements FabricClientGameTest {
                 check(inv.getItem(1).is(Items.TORCH) && inv.getItem(1).getCount() == 30, "remplissage : 30 torches en main ; case 1 = " + inv.getItem(1) + ", case 20 = " + inv.getItem(20) + ", sélection = " + inv.getSelectedSlot() + ", menu = " + player(s).containerMenu);
                 check(inv.getItem(20).isEmpty(), "remplissage : la réserve doit être prise");
             });
+
+            // ---- Recherche d'item : un diamant dans l'inventaire, d'autres dans une shulker rangée dans un coffre proche
+            BlockPos shulkerChest = feet.offset(0, 0, 3);
+            BlockPos farDiamonds = feet.offset(0, 0, -12);
+            setBlock(server, shulkerChest, "chest");
+            setBlock(server, farDiamonds, "chest");
+            putInBlock(server, shulkerChest, 0, "shulker_box[container=[{slot:0,item:{id:\"minecraft:diamond\",count:3}}]] 1");
+            putInBlock(server, farDiamonds, 0, "diamond 5");
+            putInPlayer(server, "inventory.6", "diamond 1"); // case 15
+            context.waitTicks(5);
+
+            context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+            clickSearchBox(context);
+            context.getInput().typeChars("Diam");
+            context.getInput().pressKey(InputConstants.KEY_E); // ne doit pas fermer l'inventaire
+            context.waitTicks(2);
+            check(context.computeOnClient(mc -> mc.gui.screen() instanceof InventoryScreen), "taper E dans la barre ne doit pas fermer l'inventaire");
+            context.takeScreenshot("eei_5_recherche_suggestions");
+            context.getInput().pressKey(InputConstants.KEY_RETURN);
+            context.waitTicks(2);
+            check(context.computeOnClient(mc -> ClientState.searchItem() == Items.DIAMOND), "Entrée doit choisir le diamant");
+            check(context.computeOnClient(mc -> searchBox(mc).getValue()).equals("Diamond"), "le nom choisi reste dans la barre");
+            context.takeScreenshot("eei_6_recherche_inventaire");
+
+            context.runOnClient(mc -> mc.player.closeContainer());
+            context.waitFor(mc -> !ClientState.searchResults().isEmpty(), 100);
+            check(context.computeOnClient(mc -> ClientState.searchResults()).equals(List.of(shulkerChest)),
+                    "seul le coffre à la shulker est trouvé : " + context.computeOnClient(mc -> ClientState.searchResults()));
+            context.getInput().lookAt(shulkerChest);
+            context.waitTicks(5);
+            context.takeScreenshot("eei_7_recherche_contour");
+
+            server.runOnServer(s -> container(s, shulkerChest).clearContent());
+            context.waitFor(mc -> ClientState.searchResults().isEmpty(), 100);
+
+            context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+            clickSearchBox(context);
+            context.getInput().pressKey(InputConstants.KEY_END);
+            for (int i = 0; i < "Diamond".length(); i++) {
+                context.getInput().pressKey(InputConstants.KEY_BACKSPACE);
+            }
+            context.waitTicks(2);
+            check(context.computeOnClient(mc -> ClientState.searchItem() == null && ClientState.searchMembers().isEmpty()), "barre vidée : plus de recherche");
         }
+    }
+
+    private static EditBox searchBox(Minecraft mc) {
+        return mc.gui.screen().children().stream()
+                .filter(EditBox.class::isInstance).map(EditBox.class::cast)
+                .findFirst().orElseThrow(() -> new AssertionError("barre de recherche absente"));
+    }
+
+    private static void clickSearchBox(ClientGameTestContext context) {
+        double[] pos = context.computeOnClient(mc -> {
+            EditBox box = searchBox(mc);
+            int scale = mc.getWindow().getGuiScale();
+            return new double[]{(box.getX() + 4) * scale, (box.getY() + box.getHeight() / 2.0) * scale};
+        });
+        context.getInput().setCursorPos(pos[0], pos[1]);
+        context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+        context.waitTick();
+        check(context.computeOnClient(mc -> searchBox(mc).isFocused()), "un clic doit donner le focus à la barre");
     }
 
     /** Place le curseur au centre d'une case du menu ouvert. */

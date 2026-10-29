@@ -2,10 +2,12 @@ package fr.every.everyeasyinventory.logic;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 
 /**
@@ -28,6 +30,11 @@ public final class PlayerState {
     public int lastHeldTotal;
 
     public long lastDepositTick = -1000L;
+
+    /** Recherche d'item : groupe cherché (vide si aucune recherche), position et empreinte de la dernière analyse. */
+    public Set<Item> searchMembers = Set.of();
+    public @Nullable BlockPos searchPos;
+    public int searchHash;
 
     public static synchronized PlayerState of(ServerPlayer player) {
         return STATES.computeIfAbsent(player, p -> new PlayerState());

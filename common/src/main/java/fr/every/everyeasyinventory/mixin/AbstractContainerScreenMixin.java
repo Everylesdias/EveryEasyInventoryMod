@@ -2,6 +2,7 @@ package fr.every.everyeasyinventory.mixin;
 
 import fr.every.everyeasyinventory.client.EeiScreenAccess;
 import fr.every.everyeasyinventory.client.ScreenTweaks;
+import fr.every.everyeasyinventory.client.SearchBar;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -32,6 +33,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Shadow protected int leftPos;
     @Shadow protected int topPos;
     @Shadow @Final protected int imageWidth;
+    @Shadow @Final protected int imageHeight;
     @Shadow protected int titleLabelY;
     @Shadow protected int inventoryLabelY;
 
@@ -45,6 +47,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Unique
     private final List<ScreenTweaks.Placed> eei$buttons = new ArrayList<>();
+    @Unique
+    private @Nullable SearchBar eei$searchBar;
 
     protected AbstractContainerScreenMixin(Component title) {
         super(title);
@@ -53,6 +57,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Inject(method = "init", at = @At("TAIL"))
     private void eei$addButtons(CallbackInfo ci) {
         eei$buttons.clear();
+        eei$searchBar = null;
         if (ScreenTweaks.isExcluded(this)) {
             return;
         }
@@ -60,11 +65,18 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             addRenderableWidget(placed.button());
             eei$buttons.add(placed);
         }
+        if (ScreenTweaks.hasSearchBar(this)) {
+            eei$searchBar = new SearchBar(this);
+            addRenderableWidget(eei$searchBar.box());
+        }
         eei$layoutButtons();
     }
 
-    /** Le livre de recettes déplace l'écran après init : on recale les boutons à chaque image. */
-    @Inject(method = "extractRenderState", at = @At("HEAD"))
+    /**
+     * Le livre de recettes déplace l'écran après init : on recale les boutons à chaque image.
+     * {@code extractContents} plutôt que {@code extractRenderState}, que les écrans à livre de recettes n'appellent pas.
+     */
+    @Inject(method = "extractContents", at = @At("HEAD"))
     private void eei$layoutBeforeRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
         eei$layoutButtons();
     }
@@ -74,17 +86,33 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         for (ScreenTweaks.Placed placed : eei$buttons) {
             placed.button().setPosition(leftPos + placed.dx(), topPos + placed.dy());
         }
+        if (eei$searchBar != null) {
+            eei$searchBar.layout(leftPos, topPos, imageWidth, imageHeight);
+        }
+    }
+
+    /** Suggestions de la barre de recherche, par-dessus le contenu de l'écran. */
+    @Inject(method = "extractContents", at = @At("TAIL"))
+    private void eei$drawSuggestions(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
+        if (eei$searchBar != null) {
+            eei$searchBar.extractSuggestions(graphics);
+        }
     }
 
     @Inject(method = "extractSlots", at = @At("TAIL"))
     private void eei$drawLocks(GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
         if (!ScreenTweaks.isExcluded(this)) {
+            ScreenTweaks.drawSearch(this, graphics);
             ScreenTweaks.drawLocks(this, graphics);
         }
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void eei$mouseClicked(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
+        if (eei$searchBar != null && eei$searchBar.mouseClicked(event)) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (!ScreenTweaks.isExcluded(this) && ScreenTweaks.mouseClicked(this, event)) {
             cir.setReturnValue(true);
         }
@@ -111,6 +139,11 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void eei$keyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
+        // Barre de recherche active : les touches tapées ne ferment pas l'écran et ne déclenchent pas de raccourci.
+        if (eei$searchBar != null && eei$searchBar.keyPressed(event)) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (!ScreenTweaks.isExcluded(this) && ScreenTweaks.keyPressed(this, event.key())) {
             cir.setReturnValue(true);
         }
