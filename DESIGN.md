@@ -159,3 +159,4 @@ prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la 
 | 2026-10-29 | Retenus : remplissage auto de la hotbar, total sous chaque icône de l'hologramme, hologramme et dépôt aussi sur tonneaux et shulkers posées, cases verrouillées. |
 | 2026-10-29 | Nom du mod : EveryEasyInventoryMod (mod id `everyeasyinventorymod`). |
 | 2026-10-29 | Propositions restantes validées telles quelles : zone ±5 blocs (11×11×11), ordre de rangement (piles identiques puis cases vides d'un conteneur qui a déjà l'item), regroupement de l'hologramme, tri par ordre des onglets créatifs, tri en haut à droite et « Envoyer » en haut à gauche, structure multi-loader sans Architectury. |
+| 2026-10-29 | Pas d'écran de configuration (le fichier JSON suffit) ; la touche `R` reste fixe. |
