@@ -245,8 +245,9 @@ a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = r
 (clic sur le titre, Entrée, nom vanilla posé par le serveur, Échap annule sans fermer, nom au-dessus de
 l'hologramme même coffre vide, champ vidé = nom par défaut), réglages (bouton ⚙, touche de tri réassignée, couleur,
 épaisseur, contour désactivé) et forçage (`/eei force`/`free`/`reload`, champ grisé, recherche, hologramme et rayon
-refusés). `./gradlew :neoforge:runGameTestServer` vérifie que le mod se charge sur un serveur dédié. Pas encore
-testé : un vrai client qui rejoint un serveur dédié distant, et un serveur dédié Fabric.
+refusés). `./gradlew :neoforge:runGameTestServer` vérifie que le mod se charge sur un serveur dédié. Validé en jeu par
+l'utilisateur le 2026-10-30 : client Fabric avec shaders et Mod Menu sur un serveur dédié Fabric local (localhost), forçage
+et persistance après redémarrage compris.
 
 Écarts et précisions par rapport à la conception :
 
