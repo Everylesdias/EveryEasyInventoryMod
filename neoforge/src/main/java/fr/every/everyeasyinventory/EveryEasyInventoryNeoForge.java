@@ -35,6 +35,10 @@ public class EveryEasyInventoryNeoForge {
                 (payload, context) -> ServerHandlers.onSearch(payload, (ServerPlayer) context.player()));
         registrar.playToServer(Payloads.Rename.TYPE, Payloads.Rename.CODEC,
                 (payload, context) -> ServerHandlers.onRename(payload, (ServerPlayer) context.player()));
+        registrar.playToServer(Payloads.QuickFill.TYPE, Payloads.QuickFill.CODEC,
+                (payload, context) -> ServerHandlers.onQuickFill(payload, (ServerPlayer) context.player()));
+        registrar.playToClient(Payloads.ContainerRules.TYPE, Payloads.ContainerRules.CODEC,
+                (payload, context) -> ClientState.onContainerRules(payload));
         registrar.playToServer(Payloads.ClientSettings.TYPE, Payloads.ClientSettings.CODEC,
                 (payload, context) -> ServerHandlers.onClientSettings(payload, (ServerPlayer) context.player()));
         registrar.playToClient(Payloads.ForcedSettings.TYPE, Payloads.ForcedSettings.CODEC,

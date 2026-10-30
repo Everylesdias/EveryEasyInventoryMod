@@ -65,8 +65,33 @@ public final class ServerActions {
 
     /** Menus dont la partie conteneur peut être triée. */
     public static boolean isSortableMenu(AbstractContainerMenu menu) {
-        return menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu
-                || menu instanceof DispenserMenu || menu instanceof HopperMenu;
+        return menu instanceof DispenserMenu || menu instanceof HopperMenu || isChestLikeMenu(menu);
+    }
+
+    /**
+     * Écran qui ressemble à un coffre : ceux du jeu, ou un menu d'un autre mod dont toutes les cases hors joueur sont
+     * de simples cases d'un même inventaire, au moins 9. Les machines et les établis ont des cases spécialisées.
+     */
+    public static boolean isChestLikeMenu(AbstractContainerMenu menu) {
+        if (menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu) {
+            return true;
+        }
+        if (menu instanceof DispenserMenu || menu instanceof HopperMenu) {
+            return false;
+        }
+        Container shared = null;
+        int count = 0;
+        for (Slot slot : menu.slots) {
+            if (slot.container instanceof Inventory) {
+                continue;
+            }
+            if (slot.getClass() != Slot.class || (shared != null && slot.container != shared)) {
+                return false;
+            }
+            shared = slot.container;
+            count++;
+        }
+        return count >= 9;
     }
 
     // ---------------------------------------------------------------- tri
@@ -112,11 +137,7 @@ public final class ServerActions {
         }
         state.lastDepositTick = now;
 
-        int radius = ServerSettings.intValue(player, EeiSetting.DEPOSIT_RADIUS);
-        BlockPos feet = player.blockPosition();
-        List<ContainerFinder.Target> targets = containersAround(player, level, radius,
-                pos -> Math.abs(pos.getX() - feet.getX()) <= radius && Math.abs(pos.getY() - feet.getY()) <= radius
-                        && Math.abs(pos.getZ() - feet.getZ()) <= radius);
+        List<ContainerFinder.Target> targets = reachableContainers(player, level);
         List<Set<Item>> contents = targets.stream().map(target -> itemsIn(target.container())).toList();
 
         Inventory inventory = player.getInventory();
@@ -159,6 +180,15 @@ public final class ServerActions {
         player.inventoryMenu.broadcastChanges();
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.5F, 1.2F);
         player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.deposit", moved, touched.size()));
+    }
+
+    /** Conteneurs à portée d'Envoyer et de Remplir : un cube centré sur le joueur. */
+    private static List<ContainerFinder.Target> reachableContainers(ServerPlayer player, ServerLevel level) {
+        int radius = ServerSettings.intValue(player, EeiSetting.DEPOSIT_RADIUS);
+        BlockPos feet = player.blockPosition();
+        return containersAround(player, level, radius,
+                pos -> Math.abs(pos.getX() - feet.getX()) <= radius && Math.abs(pos.getY() - feet.getY()) <= radius
+                        && Math.abs(pos.getZ() - feet.getZ()) <= radius);
     }
 
     /**
@@ -212,7 +242,8 @@ public final class ServerActions {
         for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
             ItemStack existing = container.getItem(i);
             int max = Math.min(container.getMaxStackSize(), existing.getMaxStackSize());
-            if (!existing.isEmpty() && existing.getCount() < max && ItemStack.isSameItemSameComponents(existing, stack)) {
+            if (!existing.isEmpty() && existing.getCount() < max && ItemStack.isSameItemSameComponents(existing, stack)
+                    && container.canPlaceItem(i, stack)) {
                 int count = Math.min(max - existing.getCount(), stack.getCount());
                 existing.grow(count);
                 stack.shrink(count);
@@ -232,6 +263,75 @@ public final class ServerActions {
             }
         }
         return changed;
+    }
+
+    // ---------------------------------------------------------------- remplir
+
+    /**
+     * Complète les piles entamées de l'inventaire et de la hotbar depuis les conteneurs à portée d'Envoyer,
+     * du plus proche au plus loin. Les cases vides et les cases verrouillées ne bougent pas.
+     */
+    public static void quickFill(ServerPlayer player) {
+        ServerLevel level = (ServerLevel) player.level();
+        PlayerState state = PlayerState.of(player);
+        long now = level.getGameTime();
+        if (now - state.lastDepositTick < 20) {
+            return;
+        }
+        state.lastDepositTick = now;
+
+        Inventory inventory = player.getInventory();
+        List<ContainerFinder.Target> targets = null;
+        int moved = 0;
+        Set<ContainerFinder.Target> touched = new HashSet<>();
+        for (int i = 0; i < MAIN_END; i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (stack.isEmpty() || state.isLocked(i) || stack.getCount() >= stack.getMaxStackSize()) {
+                continue;
+            }
+            if (targets == null) {
+                targets = reachableContainers(player, level);
+            }
+            for (ContainerFinder.Target target : targets) {
+                int taken = takeInto(target.container(), inventory, stack);
+                if (taken > 0) {
+                    moved += taken;
+                    touched.add(target);
+                }
+                if (stack.getCount() >= stack.getMaxStackSize()) {
+                    break;
+                }
+            }
+        }
+
+        if (moved == 0) {
+            player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.fill.none"));
+            return;
+        }
+        for (ContainerFinder.Target target : touched) {
+            target.container().setChanged();
+            Vec3 center = target.center();
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y + 0.6, center.z, 6, 0.3, 0.2, 0.3, 0.0);
+        }
+        inventory.setChanged();
+        player.containerMenu.broadcastChanges();
+        level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.5F, 0.9F);
+        player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.fill", moved, touched.size()));
+    }
+
+    /** Prend dans le conteneur les items identiques qui manquent à la pile ; renvoie le nombre pris. */
+    private static int takeInto(Container container, Inventory inventory, ItemStack stack) {
+        int total = 0;
+        for (int i = 0; i < container.getContainerSize() && stack.getCount() < stack.getMaxStackSize(); i++) {
+            ItemStack source = container.getItem(i);
+            if (!source.isEmpty() && ItemStack.isSameItemSameComponents(source, stack) && container.canTakeItem(inventory, i, source)) {
+                int count = Math.min(stack.getMaxStackSize() - stack.getCount(), source.getCount());
+                container.removeItem(i, count);
+                stack.grow(count);
+                total += count;
+            }
+        }
+        return total;
     }
 
     // ---------------------------------------------------------------- hologramme

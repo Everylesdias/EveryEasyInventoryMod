@@ -7,8 +7,10 @@ import fr.every.everyeasyinventory.client.EeiSettingsScreen;
 import fr.every.everyeasyinventory.client.Keys;
 import fr.every.everyeasyinventory.config.EeiConfig;
 import fr.every.everyeasyinventory.config.EeiSetting;
+import fr.every.everyeasyinventory.logic.ContainerFinder;
 import fr.every.everyeasyinventory.logic.PlayerState;
 import fr.every.everyeasyinventory.network.Payloads;
+import fr.every.everyeasyinventory.platform.Services;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
@@ -31,6 +33,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -443,6 +449,65 @@ public class EeiClientGameTest implements FabricClientGameTest {
             context.runOnClient(mc -> {
                 mc.player.closeContainer();
             });
+            context.waitTicks(3);
+
+            // ---- Remplir : complète les piles entamées, sans toucher aux cases vides ni verrouillées
+            server.runOnServer(s -> {
+                Inventory inv = player(s).getInventory();
+                inv.clearContent();
+                inv.setItem(1, new ItemStack(Items.COBBLESTONE, 5));
+                inv.setItem(15, new ItemStack(Items.COBBLESTONE, 10));
+                inv.setItem(13, new ItemStack(Items.DIRT, 5)); // verrouillée
+                Container chest = container(s, chestA);
+                chest.clearContent();
+                chest.setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+                chest.setItem(1, new ItemStack(Items.DIRT, 20));
+            });
+            context.waitTicks(25);
+            context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+            context.takeScreenshot("eei_15_boutons_icones");
+            context.clickScreenButton("Fill");
+            context.waitTicks(5);
+            server.runOnServer(s -> {
+                Inventory inv = player(s).getInventory();
+                check(inv.getItem(1).getCount() == 64, "Remplir : la pile de la hotbar est complétée : " + inv.getItem(1));
+                check(inv.getItem(15).getCount() == 15, "Remplir : le reste va à la pile suivante : " + inv.getItem(15));
+                check(inv.getItem(13).getCount() == 5, "Remplir : la case verrouillée ne bouge pas");
+                check(count(container(s, chestA), Items.DIRT) == 20, "Remplir : le coffre garde ce qui n'est pas pris");
+            });
+
+            // ---- Listes du serveur : un distributeur n'est pas géré, sauf s'il est ajouté ; un tonneau peut être exclu
+            BlockPos dropper = feet.offset(2, 0, 2);
+            setBlock(server, dropper, "dropper");
+            putInBlock(server, dropper, 0, "iron_ingot 1");
+            server.runOnServer(s -> player(s).getInventory().setItem(20, new ItemStack(Items.IRON_INGOT, 4)));
+            context.waitTicks(25);
+            context.clickScreenButton("Send");
+            context.waitTicks(5);
+            server.runOnServer(s -> check(count(container(s, dropper), Items.IRON_INGOT) == 1, "un distributeur n'est pas un stockage par défaut"));
+            Path rules = Services.PLATFORM.getConfigDir().resolve("everyeasyinventorymod-server.json");
+            writeRules(rules, "{\"extraContainers\": [\"minecraft:dropper\"], \"excludedContainers\": [\"minecraft:barrel\"]}");
+            server.runCommand("eei reload");
+            context.waitTicks(25);
+            check(context.computeOnClient(mc -> ContainerFinder.isSupported(mc.level.getBlockEntity(dropper))), "liste : le distributeur est ajouté");
+            check(context.computeOnClient(mc -> !ContainerFinder.isSupported(mc.level.getBlockEntity(barrel))), "liste : le tonneau est exclu");
+            context.clickScreenButton("Send");
+            context.waitTicks(5);
+            server.runOnServer(s -> check(count(container(s, dropper), Items.IRON_INGOT) == 5, "liste : Envoyer remplit le distributeur ajouté"));
+            writeRules(rules, "{}");
+            server.runCommand("eei reload");
+            context.waitTicks(3);
+            context.runOnClient(mc -> mc.player.closeContainer());
+        }
+    }
+
+    private static void writeRules(Path path, String content) {
+        try {
+            Files.writeString(path, content);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

@@ -153,6 +153,31 @@ public final class Payloads {
         }
     }
 
+    /** Serveur → client : blocs ajoutés ou exclus des conteneurs gérés. */
+    public record ContainerRules(List<String> extra, List<String> excluded) implements CustomPacketPayload {
+        public static final Type<ContainerRules> TYPE = createType("container_rules");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ContainerRules> CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(256).apply(ByteBufCodecs.list()), ContainerRules::extra,
+                ByteBufCodecs.stringUtf8(256).apply(ByteBufCodecs.list()), ContainerRules::excluded,
+                ContainerRules::new);
+
+        @Override
+        public Type<ContainerRules> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client → serveur : compléter les piles entamées depuis les conteneurs proches. */
+    public record QuickFill() implements CustomPacketPayload {
+        public static final Type<QuickFill> TYPE = createType("quick_fill");
+        public static final StreamCodec<RegistryFriendlyByteBuf, QuickFill> CODEC = StreamCodec.unit(new QuickFill());
+
+        @Override
+        public Type<QuickFill> type() {
+            return TYPE;
+        }
+    }
+
     /** Client → serveur : renommer le conteneur du menu ouvert (en {@code pos}) ; nom vide = nom par défaut. */
     public record Rename(int containerId, BlockPos pos, String name) implements CustomPacketPayload {
         public static final Type<Rename> TYPE = createType("rename");

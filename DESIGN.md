@@ -234,7 +234,25 @@ contour et recherche activables) ; le serveur peut forcer les réglages des joue
   évidence dans l'inventaire reste active.
 - Envoyer parcourt désormais les block entities des tronçons chargés, comme la recherche, au lieu de tester chaque position.
 
-## 9. État de l'implémentation (v1.3.0, 2026-10-30)
+## 9. Remplir et conteneurs d'autres mods (v1.4.0)
+
+### Choix validés (2026-10-30)
+
+- **Remplir** complète les piles entamées de l'inventaire et de la hotbar depuis les conteneurs à portée d'Envoyer (même
+  rayon, même délai). Cases vides et verrouillées intactes.
+- **Boutons à icônes** pour Envoyer et Remplir, pour éviter les libellés longs : flèche et coffre, détail dans l'infobulle.
+- **Conteneurs d'autres mods** : détection automatique + listes `extraContainers` et `excludedContainers` dans le fichier
+  serveur (`mod:bloc` ou `mod:*`), transmises au client.
+- **Fonctions** : toutes si possible. Écrans : seulement si le menu ressemble à un coffre. Renommage : si nom vanilla.
+
+### Fonctionnement
+
+- Stockage reconnu : block entity qui implémente `Container`, au moins 9 cases, ni `WorldlyContainer` (machines) ni
+  distributeur ni crafter. Limite : un mod qui n'expose que les capacités NeoForge ou la Transfer API Fabric n'est pas
+  détecté, et un écran à cases personnalisées ne reçoit pas les boutons.
+- Écran comme un coffre : toutes les cases hors joueur sont de simples `Slot` d'un même inventaire, au moins 9.
+
+## 10. État de l'implémentation (v1.4.0, 2026-10-30)
 
 Tout est codé pour les deux loaders. Le scénario de test en jeu passe sous Fabric
 (`./gradlew :fabric:runClientGameTest`) et sous NeoForge (`./gradlew :neoforge:runSelftest`) : rangement
@@ -247,7 +265,8 @@ l'hologramme même coffre vide, champ vidé = nom par défaut), réglages (bouto
 épaisseur, contour désactivé) et forçage (`/eei force`/`free`/`reload`, champ grisé, recherche, hologramme et rayon
 refusés). `./gradlew :neoforge:runGameTestServer` vérifie que le mod se charge sur un serveur dédié. Validé en jeu par
 l'utilisateur le 2026-10-30 : client Fabric avec shaders et Mod Menu sur un serveur dédié Fabric local (localhost), forçage
-et persistance après redémarrage compris.
+et persistance après redémarrage compris (v1.3.0). La v1.4.0 ajoute au scénario Remplir, les listes et, sous NeoForge,
+un bloc de test qui n'expose que `Container` ; aucun vrai mod tiers n'a encore été essayé.
 
 Écarts et précisions par rapport à la conception :
 
@@ -273,7 +292,7 @@ et persistance après redémarrage compris.
 - **Configuration** : `config/everyeasyinventorymod.json`, modifiable depuis l'écran de réglages (voir §8) ; les
   cases verrouillées y sont aussi enregistrées.
 
-## 10. Journal des décisions
+## 11. Journal des décisions
 
 | Date | Décision |
 |---|---|
@@ -290,3 +309,4 @@ et persistance après redémarrage compris.
 | 2026-10-29 | Recherche d'item (v1.1) : contour seulement si visible, jaune doré ; recherche par groupe, shulkers rangées comprises ; barre dans l'inventaire et les écrans de conteneur ; oubliée en quittant ; cadre + assombrissement dans l'inventaire ; analyse à la demande côté serveur (block entities des tronçons chargés, toutes les 10 ticks, seulement si recherche active). |
 | 2026-10-29 | Renommer un conteneur (v1.2) : nom vanilla du bloc, champ à la place du titre (Entrée / Échap / vide = défaut), nom au-dessus de l'hologramme même vide, droits = qui peut l'ouvrir. |
 | 2026-10-30 | Réglages (v1.3) : touche de tri dans Options → Commandes, écran avec tous les réglages (bouton ⚙ + liste des mods), couleur par palette + #RRGGBB, épaisseur 1-5 ; serveur : fichier et commandes `/eei`, réglage par réglage, grisé avec cadenas. Remplace « pas d'écran de configuration, touche R fixe ». |
+| 2026-10-30 | Remplir (v1.4) : compléter les piles entamées, hotbar comprise ; boutons Envoyer et Remplir à icônes. Conteneurs d'autres mods : détection automatique + listes serveur, toutes les fonctions si possible. |

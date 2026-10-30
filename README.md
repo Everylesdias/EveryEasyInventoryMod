@@ -9,7 +9,8 @@ Inventory and chest management for Minecraft 26.3, for **Fabric** and **NeoForge
 
 | Where | What | How |
 |---|---|---|
-| Inventory | Send items to the nearby chests, barrels and shulker boxes (±5 blocks) that already contain them | **Send** button (top left) |
+| Inventory | Send items to the nearby containers (±5 blocks) that already contain them | **Send** button (top left: arrow into a chest) |
+| Inventory | Fill: top up your partial stacks from nearby containers; empty and locked slots are left alone | **Fill** button (arrow out of a chest) |
 | Inventory, chests | Sort | **⇅** button, or the sort key (default **R**, change it in Options → Controls) over the part to sort |
 | Chests | Take all / deposit all / deposit only what the chest already has | **↓**, **↑**, **⇡** buttons |
 | Everywhere | Move every stack you drag over | **Shift + drag** |
@@ -34,6 +35,16 @@ Server-side work is kept small for servers with many chests: searches and hologr
 of already loaded chunks near the players who use them, a few times per second at most, and packets are sent
 only when the result changes. Every action checks that the player may open the container (spawn protection,
 claim mods, locked containers).
+
+### Containers from other mods
+
+Any block exposing a standard inventory of 9 slots or more is treated as storage, machines excluded. Mods that do not
+use the standard inventory interface are not detected. Server owners can adjust this in
+`config/everyeasyinventorymod-server.json`, then run `/eei reload`:
+
+```json
+{ "extraContainers": ["somemod:big_crate"], "excludedContainers": ["othermod:*"] }
+```
 
 ## Install
 

@@ -19,6 +19,8 @@ public class EveryEasyInventoryFabric implements ModInitializer {
         PayloadTypeRegistry.serverboundPlay().register(Payloads.Search.TYPE, Payloads.Search.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(Payloads.Rename.TYPE, Payloads.Rename.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(Payloads.ClientSettings.TYPE, Payloads.ClientSettings.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(Payloads.QuickFill.TYPE, Payloads.QuickFill.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(Payloads.ContainerRules.TYPE, Payloads.ContainerRules.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(Payloads.ForcedSettings.TYPE, Payloads.ForcedSettings.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(Payloads.PeekContents.TYPE, Payloads.PeekContents.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(Payloads.SearchResults.TYPE, Payloads.SearchResults.CODEC);
@@ -30,6 +32,7 @@ public class EveryEasyInventoryFabric implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(Payloads.Search.TYPE, (payload, context) -> ServerHandlers.onSearch(payload, context.player()));
         ServerPlayNetworking.registerGlobalReceiver(Payloads.Rename.TYPE, (payload, context) -> ServerHandlers.onRename(payload, context.player()));
         ServerPlayNetworking.registerGlobalReceiver(Payloads.ClientSettings.TYPE, (payload, context) -> ServerHandlers.onClientSettings(payload, context.player()));
+        ServerPlayNetworking.registerGlobalReceiver(Payloads.QuickFill.TYPE, (payload, context) -> ServerHandlers.onQuickFill(payload, context.player()));
 
         CommandRegistrationCallback.EVENT.register((dispatcher, context, environment) -> EeiCommands.register(dispatcher));
     }

@@ -11,10 +11,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.component.DataComponents;
@@ -61,13 +59,13 @@ public final class ScreenTweaks {
     }
 
     /** Barre de recherche dans l'inventaire du joueur et les écrans de coffre, tonneau et shulker. */
-    public static boolean hasSearchBar(Screen screen) {
-        return ClientState.bool(EeiSetting.SEARCH_ENABLED) && (screen instanceof InventoryScreen || screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen);
+    public static boolean hasSearchBar(Screen screen, EeiScreenAccess access) {
+        return ClientState.bool(EeiSetting.SEARCH_ENABLED) && (screen instanceof InventoryScreen || ServerActions.isChestLikeMenu(access.eei$menu()));
     }
 
     /** Titre cliquable pour renommer : écrans de coffre, tonneau et shulker. */
-    public static boolean isRenamable(Screen screen) {
-        return screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen;
+    public static boolean isRenamable(EeiScreenAccess access) {
+        return ServerActions.isChestLikeMenu(access.eei$menu());
     }
 
     /** Largeur prise par les boutons à droite de la ligne du titre (voir {@link #createButtons}). */
@@ -88,12 +86,10 @@ public final class ScreenTweaks {
 
         if (screen instanceof InventoryScreen) {
             if (server) {
-                Component label = Component.translatable("button.everyeasyinventorymod.send");
-                int width = Minecraft.getInstance().font.width(label) + 8;
-                buttons.add(new Placed(Button.builder(label, b -> Services.PLATFORM.sendToServer(new Payloads.AreaDeposit()))
-                        .size(width, 12)
-                        .tooltip(Tooltip.create(Component.translatable("button.everyeasyinventorymod.send.tooltip")))
-                        .build(), 0, -14));
+                buttons.add(new Placed(iconButton("send", IconButton.SEND, b -> Services.PLATFORM.sendToServer(new Payloads.AreaDeposit())), 0, -14));
+                if (Services.PLATFORM.canSendToServer(Payloads.QuickFill.TYPE)) { // absent d'un serveur avec une ancienne version du mod
+                    buttons.add(new Placed(iconButton("fill", IconButton.FILL, b -> Services.PLATFORM.sendToServer(new Payloads.QuickFill())), IconButton.WIDTH + 1, -14));
+                }
                 buttons.add(new Placed(sortButton("sort_inventory", b -> sort(access, true)), access.eei$imageWidth() - 13, -14));
             }
             Button settings = Button.builder(Component.literal("⚙"), b -> Minecraft.getInstance().gui.setScreen(new EeiSettingsScreen(screen)))
@@ -124,6 +120,13 @@ public final class ScreenTweaks {
         x -= BUTTON_SIZE + 1;
         buttons.add(new Placed(small("↑", "deposit_all", b -> deposit(access, false)), x, playerRow));
         return buttons;
+    }
+
+    /** Le nom ne s'affiche pas : il sert à la narration et aux tests. */
+    private static Button iconButton(String key, IconButton.Icon icon, Button.OnPress onPress) {
+        Button button = new IconButton(Component.translatable("button.everyeasyinventorymod." + key), onPress, icon);
+        button.setTooltip(Tooltip.create(Component.translatable("button.everyeasyinventorymod." + key + ".tooltip")));
+        return button;
     }
 
     /** L'infobulle indique la touche de tri choisie par le joueur. */

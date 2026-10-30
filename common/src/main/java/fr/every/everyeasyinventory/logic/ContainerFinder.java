@@ -1,6 +1,13 @@
 package fr.every.everyeasyinventory.logic;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.WorldlyContainer;
+import net.minecraft.world.level.block.entity.CrafterBlockEntity;
+import net.minecraft.world.level.block.entity.DispenserBlockEntity;
+import java.util.Collection;
+import java.util.Set;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
@@ -18,7 +25,8 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Trouve les conteneurs gérés par le mod : coffres (toutes variantes), tonneaux, boîtes de shulker posées.
+ * Trouve les conteneurs gérés par le mod : coffres (toutes variantes), tonneaux, boîtes de shulker posées, et les blocs
+ * de stockage d'autres mods reconnus automatiquement. Le fichier de réglages du serveur peut en ajouter ou en exclure.
  * Un coffre double est vu comme un seul conteneur, identifié par la position de sa première moitié.
  */
 public final class ContainerFinder {
@@ -33,10 +41,48 @@ public final class ContainerFinder {
     public record Target(Container container, BlockPos key, Vec3 center) {
     }
 
+    /** Taille minimale pour qu'un inventaire inconnu soit vu comme un stockage : les machines ont peu de cases. */
+    private static final int MIN_STORAGE_SIZE = 9;
+
+    private static Set<String> extraBlocks = Set.of();
+    private static Set<String> excludedBlocks = Set.of();
+
+    /** Blocs ajoutés ou exclus, sous la forme {@code mod:bloc} ou {@code mod:*}. Fixés par le serveur. */
+    public static void setRules(Collection<String> extra, Collection<String> excluded) {
+        extraBlocks = Set.copyOf(extra);
+        excludedBlocks = Set.copyOf(excluded);
+    }
+
     public static boolean isSupported(@Nullable BlockEntity blockEntity) {
-        return blockEntity instanceof ChestBlockEntity
-                || blockEntity instanceof BarrelBlockEntity
-                || blockEntity instanceof ShulkerBoxBlockEntity;
+        if (!(blockEntity instanceof Container container)) {
+            return false;
+        }
+        if (!extraBlocks.isEmpty() || !excludedBlocks.isEmpty()) {
+            Identifier id = BuiltInRegistries.BLOCK.getKey(blockEntity.getBlockState().getBlock());
+            if (matches(excludedBlocks, id)) {
+                return false;
+            }
+            if (matches(extraBlocks, id)) {
+                return true;
+            }
+        }
+        return looksLikeStorage(container);
+    }
+
+    private static boolean matches(Set<String> rules, Identifier id) {
+        return rules.contains(id.toString()) || rules.contains(id.getNamespace() + ":*");
+    }
+
+    /**
+     * Un stockage expose un inventaire d'au moins 9 cases, sans faces spécialisées comme les machines
+     * ({@link WorldlyContainer}). Les shulkers sont l'exception ; distributeurs et crafters n'en sont pas.
+     */
+    private static boolean looksLikeStorage(Container container) {
+        if (container instanceof ChestBlockEntity || container instanceof BarrelBlockEntity || container instanceof ShulkerBoxBlockEntity) {
+            return true;
+        }
+        return !(container instanceof WorldlyContainer) && !(container instanceof DispenserBlockEntity)
+                && !(container instanceof CrafterBlockEntity) && container.getContainerSize() >= MIN_STORAGE_SIZE;
     }
 
     /**

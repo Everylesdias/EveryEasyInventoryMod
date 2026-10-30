@@ -10,7 +10,8 @@ publication : [docs/publication/PUBLIER.md](docs/publication/PUBLIER.md) ; histo
 
 | Où | Quoi | Comment |
 |---|---|---|
-| Inventaire | Rangement express vers les coffres, tonneaux et shulkers à ±5 blocs qui contiennent déjà l'item | bouton **Envoyer** (en haut à gauche) |
+| Inventaire | Rangement express vers les conteneurs à ±5 blocs qui contiennent déjà l'item | bouton **Envoyer** (en haut à gauche : flèche qui entre dans un coffre) |
+| Inventaire | Remplir : complète vos piles entamées depuis les conteneurs proches ; cases vides et verrouillées intactes | bouton **Remplir** (flèche qui sort d'un coffre) |
 | Inventaire, coffres | Trier | bouton **⇅** ou touche de tri (**R** par défaut, à changer dans Options → Commandes) sur la partie survolée |
 | Coffres | Tout prendre / tout déposer / déposer ce qui est déjà présent | boutons **↓**, **↑**, **⇡** |
 | Partout | Envoyer toutes les piles survolées | **Maj + glisser** |
@@ -24,6 +25,16 @@ publication : [docs/publication/PUBLIER.md](docs/publication/PUBLIER.md) ; histo
 
 Le mod doit être installé sur le serveur pour le rangement express, le tri, l'hologramme, le
 remplissage de la hotbar, le renommage et le contour des conteneurs trouvés par la recherche (en solo, c'est automatique).
+
+### Conteneurs d'autres mods
+
+Tout bloc qui expose un inventaire standard d'au moins 9 cases est vu comme un stockage, machines exclues. Les mods qui
+n'utilisent pas l'inventaire standard ne sont pas détectés. Le serveur peut ajuster dans
+`config/everyeasyinventorymod-server.json`, puis `/eei reload` :
+
+```json
+{ "extraContainers": ["unmod:grande_caisse"], "excludedContainers": ["autremod:*"] }
+```
 
 ## Réglages
 

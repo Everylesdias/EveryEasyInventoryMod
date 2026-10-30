@@ -53,4 +53,8 @@ public final class ServerHandlers {
         });
         ServerSettings.sendTo(player);
     }
+
+    public static void onQuickFill(Payloads.QuickFill payload, ServerPlayer player) {
+        ServerActions.quickFill(player);
+    }
 }

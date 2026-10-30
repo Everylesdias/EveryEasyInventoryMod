@@ -16,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.BlockHitResult;
@@ -60,7 +61,8 @@ public final class RenameField {
         Minecraft minecraft = Minecraft.getInstance();
         if (!ClientState.serverHasMod() || minecraft.level == null
                 || !(minecraft.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK
-                || !ContainerFinder.isSupported(minecraft.level.getBlockEntity(hit.getBlockPos()))) {
+                || !ContainerFinder.isSupported(minecraft.level.getBlockEntity(hit.getBlockPos()))
+                || !(minecraft.level.getBlockEntity(hit.getBlockPos()) instanceof BaseContainerBlockEntity)) {
             return null;
         }
         return new RenameField(screen, access, hit.getBlockPos(), setTitle);

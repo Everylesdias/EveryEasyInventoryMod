@@ -12,8 +12,10 @@ import net.minecraft.server.level.ServerPlayer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -25,10 +27,17 @@ public final class ServerSettings {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Map<EeiSetting, Object> forced;
+    private static List<String> extraContainers = List.of();
+    private static List<String> excludedContainers = List.of();
 
-    /** Forme du fichier : {@code {"forced": {"searchEnabled": "false", "outlineColor": "#FF0000"}}}. */
+    /**
+     * Forme du fichier : {@code {"forced": {"searchEnabled": "false"}, "extraContainers": ["mod:bloc"],
+     * "excludedContainers": ["mod:*"]}}. Les deux listes ajoutent ou retirent des blocs des conteneurs gérés.
+     */
     private static final class FileContent {
         Map<String, String> forced = new TreeMap<>();
+        List<String> extraContainers = new ArrayList<>();
+        List<String> excludedContainers = new ArrayList<>();
     }
 
     private ServerSettings() {
@@ -48,6 +57,8 @@ public final class ServerSettings {
     /** Relit le fichier ; les entrées inconnues ou invalides sont signalées dans le journal et ignorées. */
     public static void reload() {
         Map<EeiSetting, Object> loaded = new EnumMap<>(EeiSetting.class);
+        List<String> extra = List.of();
+        List<String> excluded = List.of();
         Path path = path();
         if (Files.exists(path)) {
             try {
@@ -63,16 +74,25 @@ public final class ServerSettings {
                         }
                     });
                 }
+                if (content != null) {
+                    extra = content.extraContainers != null ? List.copyOf(content.extraContainers) : List.of();
+                    excluded = content.excludedContainers != null ? List.copyOf(content.excludedContainers) : List.of();
+                }
             } catch (IOException | RuntimeException e) {
                 Constants.LOG.warn("Réglages du serveur illisibles, aucun réglage forcé", e);
             }
         }
         forced = loaded;
+        extraContainers = extra;
+        excludedContainers = excluded;
+        ContainerFinder.setRules(extra, excluded);
     }
 
     private static void save() {
         FileContent content = new FileContent();
         forced().forEach((setting, value) -> content.forced.put(setting.key, setting.format(value)));
+        content.extraContainers.addAll(extraContainers);
+        content.excludedContainers.addAll(excludedContainers);
         try {
             Files.createDirectories(path().getParent());
             Files.writeString(path(), GSON.toJson(content));
@@ -107,6 +127,7 @@ public final class ServerSettings {
         Map<String, String> values = new HashMap<>();
         forced().forEach((setting, value) -> values.put(setting.key, setting.format(value)));
         Services.PLATFORM.sendToPlayer(player, new Payloads.ForcedSettings(values));
+        Services.PLATFORM.sendToPlayer(player, new Payloads.ContainerRules(extraContainers, excludedContainers));
     }
 
     /** Valeur qui s'applique à ce joueur : forcée par le serveur, sinon celle de son client, sinon celle par défaut. */

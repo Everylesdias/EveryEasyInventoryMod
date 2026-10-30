@@ -16,6 +16,13 @@ EveryEasyInventoryMod brings the classic inventory tweaks together with a few ne
 One click on **Send** in your inventory puts your items into the chests, barrels and shulker boxes within
 5 blocks that already contain them, topping up existing stacks first. Your hotbar and locked slots stay put.
 
+**Fill** does the opposite: it tops up your partial stacks from those same containers.
+
+## Containers from other mods
+
+Storage blocks from other mods are recognized automatically, machines excluded, and server owners can add or exclude
+blocks.
+
 ## Content hologram
 
 Look at a chest, barrel or shulker box from up to 3 blocks away: a small hologram shows each item type it holds

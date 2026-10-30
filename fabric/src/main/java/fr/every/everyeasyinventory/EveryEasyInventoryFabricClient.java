@@ -14,6 +14,7 @@ public class EveryEasyInventoryFabricClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(Payloads.PeekContents.TYPE, (payload, context) -> ClientState.onPeekContents(payload));
         ClientPlayNetworking.registerGlobalReceiver(Payloads.SearchResults.TYPE, (payload, context) -> ClientState.onSearchResults(payload));
         ClientPlayNetworking.registerGlobalReceiver(Payloads.ForcedSettings.TYPE, (payload, context) -> ClientState.onForcedSettings(payload));
+        ClientPlayNetworking.registerGlobalReceiver(Payloads.ContainerRules.TYPE, (payload, context) -> ClientState.onContainerRules(payload));
         KeyMappingHelper.registerKeyMapping(Keys.SORT);
     }
 }

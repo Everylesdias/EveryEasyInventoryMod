@@ -8,7 +8,10 @@ import fr.every.everyeasyinventory.client.EeiSettingsScreen;
 import fr.every.everyeasyinventory.client.Keys;
 import fr.every.everyeasyinventory.config.EeiConfig;
 import fr.every.everyeasyinventory.config.EeiSetting;
+import fr.every.everyeasyinventory.logic.ContainerFinder;
 import fr.every.everyeasyinventory.logic.PlayerState;
+import fr.every.everyeasyinventory.logic.ServerActions;
+import fr.every.everyeasyinventory.platform.Services;
 import fr.every.everyeasyinventory.network.Payloads;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,9 +42,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -54,6 +59,7 @@ import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -62,7 +68,8 @@ import net.neoforged.neoforge.common.NeoForge;
  * Même scénario que le gametest client Fabric, joué dans un vrai client NeoForge avec un monde solo :
  * rangement express, case verrouillée (Alt + clic), hologramme, tri, tout prendre / tout déposer, molette,
  * Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar, recherche d'item, renommage d'un conteneur,
- * écran de réglages, touche de tri réassignée, réglages forcés par le serveur avec /eei.
+ * écran de réglages, touche de tri réassignée, réglages forcés par le serveur avec /eei,
+ * Remplir, listes de conteneurs, stockage d'un autre mod.
  * Lancer avec {@code ./gradlew :neoforge:runSelftest} ; le client se ferme à la fin et écrit le verdict dans
  * neoforge/runs/selftest/eei_selftest_result.txt (captures dans neoforge/runs/selftest/screenshots).
  *
@@ -75,7 +82,8 @@ public class EeiSelfTest {
     private static final AtomicLong TICKS = new AtomicLong();
     private static boolean started;
 
-    public EeiSelfTest() {
+    public EeiSelfTest(IEventBus modBus) {
+        TestStorage.register(modBus);
         if (Boolean.getBoolean("eei.selftest")) {
             NeoForge.EVENT_BUS.addListener(EeiSelfTest::onClientTick);
         }
@@ -533,6 +541,118 @@ public class EeiSelfTest {
         client(mc -> {
             mc.player.closeContainer();
         });
+        waitTicks(3);
+
+        // ---- Remplir : complète les piles entamées, sans toucher aux cases vides ni verrouillées
+        server(s -> {
+            Inventory inv = player(s).getInventory();
+            inv.clearContent();
+            inv.setItem(1, new ItemStack(Items.COBBLESTONE, 5));
+            inv.setItem(15, new ItemStack(Items.COBBLESTONE, 10));
+            inv.setItem(13, new ItemStack(Items.DIRT, 5)); // verrouillée
+            Container chest = container(s, chestA);
+            chest.clearContent();
+            chest.setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+            chest.setItem(1, new ItemStack(Items.DIRT, 20));
+            chest.setItem(2, new ItemStack(Items.APPLE, 3));
+        });
+        waitTicks(25);
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+        screenshot("eei_15_boutons_icones");
+        clickButton("Fill");
+        waitTicks(5);
+        server(s -> {
+            Inventory inv = player(s).getInventory();
+            check(inv.getItem(1).getCount() == 64, "Remplir : la pile de la hotbar est complétée : " + inv.getItem(1));
+            check(inv.getItem(15).getCount() == 15, "Remplir : le reste va à la pile suivante : " + inv.getItem(15));
+            check(inv.getItem(13).getCount() == 5, "Remplir : la case verrouillée ne bouge pas");
+            check(count(inv, Items.APPLE) == 0, "Remplir : un item absent de l'inventaire n'est pas pris");
+            check(count(container(s, chestA), Items.COBBLESTONE) == 0 && count(container(s, chestA), Items.DIRT) == 20, "Remplir : le coffre perd seulement ce qui est pris");
+        });
+
+        // ---- Listes du serveur : un distributeur n'est pas géré, sauf s'il est ajouté ; un tonneau peut être exclu
+        BlockPos dropper = feet.offset(2, 0, 2);
+        setBlock(dropper, "dropper");
+        putInBlock(dropper, 0, "iron_ingot 1");
+        server(s -> player(s).getInventory().setItem(20, new ItemStack(Items.IRON_INGOT, 4)));
+        waitTicks(25);
+        clickButton("Send");
+        waitTicks(5);
+        server(s -> check(count(container(s, dropper), Items.IRON_INGOT) == 1, "un distributeur n'est pas un stockage par défaut"));
+        Path rules = Services.PLATFORM.getConfigDir().resolve("everyeasyinventorymod-server.json");
+        Files.writeString(rules, "{\"extraContainers\": [\"minecraft:dropper\"], \"excludedContainers\": [\"minecraft:barrel\"]}");
+        command("eei reload");
+        waitTicks(25);
+        check(onClient(mc -> ContainerFinder.isSupported(mc.level.getBlockEntity(dropper))), "liste : le distributeur est ajouté");
+        check(onClient(mc -> !ContainerFinder.isSupported(mc.level.getBlockEntity(barrel))), "liste : le tonneau est exclu");
+        clickButton("Send");
+        waitTicks(5);
+        server(s -> check(count(container(s, dropper), Items.IRON_INGOT) == 5, "liste : Envoyer remplit le distributeur ajouté"));
+        Files.writeString(rules, "{}");
+        command("eei reload");
+        waitTicks(25);
+
+        // ---- Bloc de stockage d'un autre mod (voir TestStorage) : reconnu sans aucune liste
+        BlockPos modded = feet.offset(-2, 0, 2);
+        command("setblock %d %d %d eei_selftest:test_storage".formatted(modded.getX(), modded.getY(), modded.getZ()));
+        waitTicks(3);
+        check(onClient(mc -> ContainerFinder.isSupported(mc.level.getBlockEntity(modded))), "stockage d'un autre mod reconnu");
+        server(s -> {
+            container(s, modded).setItem(0, new ItemStack(Items.GOLD_INGOT, 1));
+            player(s).getInventory().setItem(21, new ItemStack(Items.GOLD_INGOT, 5));
+        });
+        clickButton("Send");
+        waitTicks(5);
+        server(s -> {
+            check(count(container(s, modded), Items.GOLD_INGOT) == 6, "autre mod : Envoyer y dépose");
+            player(s).getInventory().setItem(22, new ItemStack(Items.GOLD_INGOT, 1));
+        });
+        waitTicks(25);
+        clickButton("Fill");
+        waitTicks(5);
+        server(s -> {
+            check(player(s).getInventory().getItem(22).getCount() == 7, "autre mod : Remplir y prend");
+            container(s, modded).setItem(0, new ItemStack(Items.EMERALD, 2));
+        });
+        client(mc -> {
+            mc.player.closeContainer();
+            ClientState.setSearch("Emerald", Items.EMERALD);
+        });
+        waitFor("recherche dans le stockage d'un autre mod", mc -> ClientState.searchResults().contains(modded), 100);
+        client(mc -> mc.player.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(modded)));
+        waitFor("hologramme du stockage d'un autre mod", mc -> ClientState.contents() != null && ClientState.contents().pos().equals(modded)
+                && !ClientState.contents().icons().isEmpty() && ClientState.contents().icons().getFirst().is(Items.EMERALD), 100);
+        waitTicks(3);
+        screenshot("eei_16_autre_mod");
+        client(mc -> ClientState.setSearch("", null));
+
+        // ---- Écrans : un menu fait de simples cases ressemble à un coffre, pas un menu à cases spécialisées
+        check(ServerActions.isChestLikeMenu(testMenu(false)), "menu d'un autre mod à cases simples : comme un coffre");
+        check(!ServerActions.isChestLikeMenu(testMenu(true)), "menu à cases spécialisées : pas un coffre");
+    }
+
+    private static AbstractContainerMenu testMenu(boolean specialSlot) {
+        AbstractContainerMenu menu = new AbstractContainerMenu(null, 1) {
+            {
+                SimpleContainer storage = new SimpleContainer(18);
+                for (int i = 0; i < 18; i++) {
+                    addSlot(specialSlot && i == 0 ? new Slot(storage, i, 0, 0) { } : new Slot(storage, i, 0, 0));
+                }
+            }
+
+            @Override
+            public ItemStack quickMoveStack(net.minecraft.world.entity.player.Player player, int index) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(net.minecraft.world.entity.player.Player player) {
+                return true;
+            }
+        };
+        return menu;
     }
 
     /** Ouvre le conteneur comme un clic droit : le joueur le regarde, puis le serveur ouvre son menu. */

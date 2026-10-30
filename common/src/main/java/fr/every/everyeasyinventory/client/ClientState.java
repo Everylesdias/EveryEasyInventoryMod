@@ -107,6 +107,10 @@ public final class ClientState {
         Services.PLATFORM.sendToServer(new Payloads.ClientSettings(values));
     }
 
+    public static void onContainerRules(Payloads.ContainerRules payload) {
+        ContainerFinder.setRules(payload.extra(), payload.excluded());
+    }
+
     public static void onForcedSettings(Payloads.ForcedSettings payload) {
         FORCED.clear();
         payload.values().forEach((key, text) -> {

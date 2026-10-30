@@ -74,7 +74,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             addRenderableWidget(placed.button());
             eei$buttons.add(placed);
         }
-        if (ScreenTweaks.hasSearchBar(this)) {
+        if (ScreenTweaks.hasSearchBar(this, this)) {
             eei$searchBar = new SearchBar(this);
             addRenderableWidget(eei$searchBar.box());
         }
