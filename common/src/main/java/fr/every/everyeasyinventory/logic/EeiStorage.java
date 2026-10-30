@@ -28,6 +28,14 @@ public interface EeiStorage {
 
     void setChanged();
 
+    /**
+     * Le stockage contient des items mais refuse de les rendre : verrou d'un autre mod. On ne le lit donc pas non plus.
+     * L'essai est simulé, rien n'est retiré.
+     */
+    default boolean refusesExtraction() {
+        return false;
+    }
+
     /** Inventaire du jeu. */
     record OfContainer(Container container) implements EeiStorage {
 

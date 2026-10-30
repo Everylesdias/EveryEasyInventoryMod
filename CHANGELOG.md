@@ -9,7 +9,8 @@
   or NeoForge capabilities: 9 slots or more, or high-capacity slots like crates, machines excluded. They work with Send,
   Fill, the hologram and search; chest-like screens also get the buttons, sorting and the search bar, and renaming when
   the block supports a vanilla name. Tested with Assorted Storage on Fabric.
-- Known limit: locks added by other mods are not checked, unless the mod enforces them in its own inventory.
+- Locks from other mods are respected when the mod refuses to give items out of a locked block: Send, Fill, the
+  hologram and search then skip it. Tested with Assorted Storage's locks on Fabric.
 - Servers can add or exclude blocks with `extraContainers` and `excludedContainers` in
   `config/everyeasyinventorymod-server.json` (`mod:block` or `mod:*`).
 

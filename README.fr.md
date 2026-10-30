@@ -30,8 +30,9 @@ remplissage de la hotbar, le renommage et le contour des conteneurs trouvés par
 
 Les blocs qui exposent leurs items par l'inventaire standard, la Transfer API de Fabric ou les capacités de NeoForge sont
 vus comme des stockages s'ils ont au moins 9 cases, ou des cases à grande capacité comme les caisses ; les machines sont
-exclues autant que possible. Les verrous ajoutés par d'autres mods ne sont pas vérifiés, sauf si le mod les applique dans
-son propre inventaire : excluez ces blocs si c'est important sur votre serveur. Le serveur peut ajuster dans
+exclues autant que possible. Un bloc dont le mod refuse de rendre les items (son propre verrou) est ignoré par Envoyer, Remplir,
+l'hologramme et la recherche ; un mod qui n'applique pas ses verrous dans son inventaire n'est pas détectable : excluez
+ces blocs si c'est important. Le serveur peut ajuster dans
 `config/everyeasyinventorymod-server.json`, puis `/eei reload` :
 
 ```json

@@ -87,6 +87,19 @@ record NeoForgeStorage(ResourceHandler<ItemResource> handler) implements EeiStor
     }
 
     @Override
+    public boolean refusesExtraction() {
+        for (int i = 0; i < handler.size(); i++) {
+            ItemResource resource = handler.getResource(i);
+            if (!resource.isEmpty()) {
+                try (Transaction transaction = Transaction.openRoot()) {
+                    return handler.extract(i, resource, 1, transaction) == 0; // sans commit : annulé
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
     public void setChanged() {
         // La transaction a déjà prévenu le bloc.
     }

@@ -5,6 +5,13 @@ assortedchests:chest_iron | oui | oui | oui | oui | oui | LockedMaterialScreen |
 assortedbarrels:barrel_iron | oui | oui | oui | oui | oui | LockedMaterialScreen | oui | oui | oui | - | LockedBarrelBlockEntity
 assortedcrates:oak_crate | oui | oui | oui | oui | oui | aucun | - | - | - | - | CrateBlockEntity
 assortedcrates:oak_crate_double | oui | oui | oui | oui | oui | aucun | - | - | - | - | CrateBlockEntity
+
+verrou posé, joueur sans clé | ouvrir | Envoyer | Remplir | hologramme | recherche
+assortedchests:chest_iron | bloqué | bloqué | bloqué | bloqué | bloqué
+assortedbarrels:barrel_iron | bloqué | bloqué | bloqué | bloqué | bloqué
+assortedcrates:oak_crate | bloqué | bloqué | bloqué | bloqué | bloqué
+assortedcrates:oak_crate_double | bloqué | bloqué | bloqué | bloqué | bloqué
+
 minecraft:furnace | exclu
 minecraft:hopper | exclu
 minecraft:dropper | exclu

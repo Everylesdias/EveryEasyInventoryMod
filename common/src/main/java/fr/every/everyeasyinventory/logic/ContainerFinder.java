@@ -147,11 +147,16 @@ public final class ContainerFinder {
 
     /**
      * Le joueur aurait-il le droit d'ouvrir ce conteneur ? Refusé si verrouillé, protégé (spawn, mod de claims),
-     * ou si c'est un coffre à butin pas encore généré : on ne le déclenche pas à distance.
+     * si c'est un coffre à butin pas encore généré (on ne le déclenche pas à distance), ou si un autre mod refuse d'en
+     * sortir les items (son propre verrou).
      */
     public static boolean canAccess(Player player, Level level, BlockPos pos) {
         if (!level.mayInteract(player, pos)) {
             return false;
+        }
+        if (!(level.getBlockEntity(pos) instanceof Container)) {
+            EeiStorage storage = Services.PLATFORM.findStorage(level, pos);
+            return storage != null && !storage.refusesExtraction();
         }
         BlockPos other = otherHalf(level.getBlockState(pos), pos);
         return canAccessHalf(player, level, pos) && (other.equals(pos) || canAccessHalf(player, level, other));

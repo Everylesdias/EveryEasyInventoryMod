@@ -251,8 +251,11 @@ contour et recherche activables) ; le serveur peut forcer les réglages des joue
 - Stockage reconnu : `Container` d'au moins 9 cases, ni `WorldlyContainer` (machines) ni distributeur ni crafter ; sinon
   un stockage du loader avec au moins 9 cases ou des cases d'au moins 100 items (caisses).
 - Écran comme un coffre : toutes les cases hors joueur sont du même type, au moins 9 (crafter exclu).
-- **Limite** : `canAccess` ne connaît que les verrous du jeu. Un verrou ajouté par un autre mod n'est respecté que si ce mod
-  l'applique dans son inventaire ; non vérifié sur les coffres verrouillés d'Assorted Storage.
+- **Verrous d'autres mods** : avant toute action sur un stockage du loader, le serveur simule l'extraction d'un item
+  (transaction annulée). Si le mod la refuse alors que le bloc n'est pas vide, le bloc est inaccessible : ni Envoyer, ni
+  Remplir, ni hologramme, ni recherche. Vérifié avec les verrous d'Assorted Storage (joueur sans clé). Limites : un mod qui
+  n'applique pas ses verrous dans son inventaire n'est pas détectable ; un bloc **vide** verrouillé n'est pas détecté, mais
+  il n'a rien à révéler ; le détenteur de la clé n'a pas non plus l'hologramme.
 
 ## 10. État de l'implémentation (v1.4.0, 2026-10-30)
 

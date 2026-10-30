@@ -89,6 +89,19 @@ record FabricStorage(SlottedStorage<ItemVariant> storage) implements EeiStorage 
     }
 
     @Override
+    public boolean refusesExtraction() {
+        for (int i = 0; i < storage.getSlotCount(); i++) {
+            SingleSlotStorage<ItemVariant> slot = storage.getSlot(i);
+            if (!slot.isResourceBlank()) {
+                try (Transaction transaction = Transaction.openOuter()) {
+                    return slot.extract(slot.getResource(), 1, transaction) == 0; // sans commit : annulé
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
     public void setChanged() {
         // La transaction a déjà prévenu le bloc.
     }

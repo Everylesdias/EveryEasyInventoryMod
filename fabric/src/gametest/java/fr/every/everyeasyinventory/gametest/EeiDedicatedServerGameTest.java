@@ -83,6 +83,15 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
                     report.append(id).append(" | mod absent\n");
                 }
             }
+            report.append("\nverrou posé, joueur sans clé | ouvrir | Envoyer | Remplir | hologramme | recherche\n");
+            for (String id : OTHER_MODS) {
+                if (BuiltInRegistries.BLOCK.containsKey(Identifier.parse(id))) {
+                    String line = testLock(context, server, id, target);
+                    report.append(line).append('\n');
+                    check(!line.contains("PASSE"), "un joueur sans clé ne doit rien obtenir : " + line);
+                }
+            }
+            report.append('\n');
             for (String id : NOT_STORAGE) {
                 setBlock(server, target, id);
                 context.waitTicks(3);
@@ -96,6 +105,71 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+        }
+    }
+
+    /** Verrou posé par le mod lui-même : ce qu'un joueur sans clé arrive encore à faire. */
+    private static String testLock(ClientGameTestContext context, TestDedicatedServerContext server, String id, BlockPos pos) {
+        // Regard ailleurs : l'hologramme du bloc précédent ne doit pas compter.
+        context.getInput().lookAt(pos.above(5));
+        setBlock(server, pos, "minecraft:air");
+        context.waitTicks(10);
+        setBlock(server, pos, id);
+        context.waitTicks(5);
+        if (!context.computeOnClient(mc -> ContainerFinder.isSupported(mc.level.getBlockEntity(pos)))) {
+            return id + " | non reconnu";
+        }
+        server.runOnServer(s -> {
+            Inventory inv = player(s).getInventory();
+            inv.clearContent();
+            inv.setItem(9, new ItemStack(Items.GOLD_INGOT, 5));
+            inv.setItem(10, new ItemStack(Items.EMERALD, 1));
+            storage(s, pos).fillEmpty(new ItemStack(Items.GOLD_INGOT, 1));
+            storage(s, pos).fillEmpty(new ItemStack(Items.EMERALD, 10));
+            setLock(s.overworld().getBlockEntity(pos), "secret");
+        });
+        context.getInput().lookAt(pos);
+        context.waitTicks(25);
+
+        // Regarder le coffre et le chercher : le serveur ne doit rien révéler.
+        boolean hologram = within(context, mc -> ClientState.contents() != null && !ClientState.contents().icons().isEmpty(), 40);
+        context.runOnClient(mc -> ClientState.setSearch("Emerald", Items.EMERALD));
+        boolean search = within(context, mc -> !ClientState.searchResults().isEmpty(), 40);
+        context.runOnClient(mc -> ClientState.setSearch("", null));
+
+        context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_RIGHT);
+        boolean opened = within(context, mc -> mc.gui.screen() != null, 30);
+        if (opened) {
+            context.runOnClient(mc -> mc.player.closeContainer());
+            context.waitTicks(3);
+        }
+
+        context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+        context.waitForScreen(InventoryScreen.class);
+        context.waitTicks(2);
+        context.clickScreenButton("Send");
+        context.waitTicks(10);
+        boolean sent = server.computeOnServer(s -> player(s).getInventory().getItem(9).getCount() != 5);
+        context.waitTicks(25);
+        context.clickScreenButton("Fill");
+        context.waitTicks(10);
+        boolean filled = server.computeOnServer(s -> player(s).getInventory().getItem(10).getCount() > 1);
+        context.runOnClient(mc -> mc.player.closeContainer());
+        context.waitTicks(3);
+
+        server.runOnServer(s -> setLock(s.overworld().getBlockEntity(pos), ""));
+        return id + " | " + passed(opened) + " | " + passed(sent) + " | " + passed(filled) + " | " + passed(hologram) + " | " + passed(search);
+    }
+
+    private static String passed(boolean value) {
+        return value ? "PASSE" : "bloqué";
+    }
+
+    private static void setLock(BlockEntity blockEntity, String code) {
+        try {
+            blockEntity.getClass().getMethod("setLockCode", String.class).invoke(blockEntity, code);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("pas de verrou sur " + blockEntity, e);
         }
     }
 
