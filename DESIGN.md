@@ -266,7 +266,8 @@ l'hologramme même coffre vide, champ vidé = nom par défaut), réglages (bouto
 refusés). `./gradlew :neoforge:runGameTestServer` vérifie que le mod se charge sur un serveur dédié. Validé en jeu par
 l'utilisateur le 2026-10-30 : client Fabric avec shaders et Mod Menu sur un serveur dédié Fabric local (localhost), forçage
 et persistance après redémarrage compris (v1.3.0). La v1.4.0 ajoute au scénario Remplir, les listes et, sous NeoForge,
-un bloc de test qui n'expose que `Container` ; aucun vrai mod tiers n'a encore été essayé.
+un bloc de test qui n'expose que `Container` ; le test `EeiDedicatedServerGameTest` connecte un vrai client à un vrai serveur dédié et écrit un rapport de compatibilité.
+Premier résultat ([docs/compat_report_assorted_storage.txt](docs/compat_report_assorted_storage.txt)) : Assorted Storage 13.0.0 n'est **pas** reconnu, ses blocs n'exposent pas `Container`.
 
 Écarts et précisions par rapport à la conception :
 

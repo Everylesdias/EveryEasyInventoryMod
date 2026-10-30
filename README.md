@@ -100,7 +100,9 @@ Jars are written to `fabric/build/libs` and `neoforge/build/libs`.
 ./gradlew :neoforge:runSelftest
 ```
 
-Each one starts a real client, creates a world and plays the whole scenario. The NeoForge verdict is written
+Each one starts a real client, creates a world and plays the whole scenario. The Fabric run also connects a real
+client to a real dedicated server and writes `fabric/build/run/clientGameTest/eei_compat_report.txt`; mods placed in
+`fabric/test-mods` are included in that report. The NeoForge verdict is written
 to `neoforge/runs/selftest/eei_selftest_result.txt`.
 
 ## License

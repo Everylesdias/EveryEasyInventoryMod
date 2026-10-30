@@ -72,3 +72,11 @@ fabricApi {
         eula = true
     }
 }
+
+// Mods tiers à charger pendant les tests, pour le rapport de compatibilité (dossier facultatif, hors du dépôt).
+tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+    def testMods = file('test-mods')
+    if (testMods.isDirectory()) {
+        systemProperty 'fabric.addMods', testMods.absolutePath
+    }
+}
