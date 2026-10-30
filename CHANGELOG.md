@@ -5,9 +5,11 @@
 - New **Fill** button: tops up your partial stacks (hotbar included) from nearby containers. Locked and empty slots
   are left alone. Same radius as Send.
 - **Send** and **Fill** are now small icon buttons: an arrow going into or out of a chest.
-- Storage blocks from other mods are recognized automatically: any block exposing a standard inventory of 9 slots or
-  more, machines excluded. They work with Send, Fill, the hologram and search; chest-like screens also get the buttons,
-  sorting and the search bar, and renaming when the block supports a vanilla name.
+- Storage blocks from other mods are recognized automatically, through the standard inventory, the Fabric Transfer API
+  or NeoForge capabilities: 9 slots or more, or high-capacity slots like crates, machines excluded. They work with Send,
+  Fill, the hologram and search; chest-like screens also get the buttons, sorting and the search bar, and renaming when
+  the block supports a vanilla name. Tested with Assorted Storage on Fabric.
+- Known limit: locks added by other mods are not checked, unless the mod enforces them in its own inventory.
 - Servers can add or exclude blocks with `extraContainers` and `excludedContainers` in
   `config/everyeasyinventorymod-server.json` (`mod:block` or `mod:*`).
 

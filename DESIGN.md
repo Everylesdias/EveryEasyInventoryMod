@@ -247,10 +247,12 @@ contour et recherche activables) ; le serveur peut forcer les réglages des joue
 
 ### Fonctionnement
 
-- Stockage reconnu : block entity qui implémente `Container`, au moins 9 cases, ni `WorldlyContainer` (machines) ni
-  distributeur ni crafter. Limite : un mod qui n'expose que les capacités NeoForge ou la Transfer API Fabric n'est pas
-  détecté, et un écran à cases personnalisées ne reçoit pas les boutons.
-- Écran comme un coffre : toutes les cases hors joueur sont de simples `Slot` d'un même inventaire, au moins 9.
+- `EeiStorage` cache la façon dont un bloc expose ses items : `Container`, Transfer API (Fabric) ou capacités (NeoForge).
+- Stockage reconnu : `Container` d'au moins 9 cases, ni `WorldlyContainer` (machines) ni distributeur ni crafter ; sinon
+  un stockage du loader avec au moins 9 cases ou des cases d'au moins 100 items (caisses).
+- Écran comme un coffre : toutes les cases hors joueur sont du même type, au moins 9 (crafter exclu).
+- **Limite** : `canAccess` ne connaît que les verrous du jeu. Un verrou ajouté par un autre mod n'est respecté que si ce mod
+  l'applique dans son inventaire ; non vérifié sur les coffres verrouillés d'Assorted Storage.
 
 ## 10. État de l'implémentation (v1.4.0, 2026-10-30)
 
@@ -267,7 +269,7 @@ refusés). `./gradlew :neoforge:runGameTestServer` vérifie que le mod se charge
 l'utilisateur le 2026-10-30 : client Fabric avec shaders et Mod Menu sur un serveur dédié Fabric local (localhost), forçage
 et persistance après redémarrage compris (v1.3.0). La v1.4.0 ajoute au scénario Remplir, les listes et, sous NeoForge,
 un bloc de test qui n'expose que `Container` ; le test `EeiDedicatedServerGameTest` connecte un vrai client à un vrai serveur dédié et écrit un rapport de compatibilité.
-Premier résultat ([docs/compat_report_assorted_storage.txt](docs/compat_report_assorted_storage.txt)) : Assorted Storage 13.0.0 n'est **pas** reconnu, ses blocs n'exposent pas `Container`.
+Résultat ([docs/compat_report_assorted_storage.txt](docs/compat_report_assorted_storage.txt)) : coffres, tonneaux et caisses d'Assorted Storage 13.0.0 fonctionnent sous Fabric ; ce mod n'a pas été essayé sous NeoForge, où un bloc de test à capacité passe le scénario.
 
 Écarts et précisions par rapport à la conception :
 

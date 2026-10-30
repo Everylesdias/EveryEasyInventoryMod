@@ -5,6 +5,7 @@ import fr.every.everyeasyinventory.client.ClientState;
 import fr.every.everyeasyinventory.client.EeiScreenAccess;
 import fr.every.everyeasyinventory.config.EeiSetting;
 import fr.every.everyeasyinventory.logic.ContainerFinder;
+import fr.every.everyeasyinventory.logic.EeiStorage;
 import fr.every.everyeasyinventory.logic.ServerActions;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -21,7 +22,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Container;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
@@ -123,7 +123,7 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
             return blockEntity == null ? "aucune" : blockEntity.getClass().getSimpleName();
         });
         boolean supported = context.computeOnClient(mc -> ContainerFinder.isSupported(mc.level.getBlockEntity(pos)));
-        boolean isContainer = server.computeOnServer(s -> s.overworld().getBlockEntity(pos) instanceof Container);
+        boolean isContainer = server.computeOnServer(s -> ContainerFinder.find(s.overworld(), pos) != null);
         String none = "-";
         String send = none;
         String fill = none;
@@ -145,7 +145,7 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
             inv.clearContent();
             inv.setItem(9, new ItemStack(Items.GOLD_INGOT, 5));
             clear(s, pos);
-            container(s, pos).setItem(0, new ItemStack(Items.GOLD_INGOT, 1));
+            storage(s, pos).fillEmpty(new ItemStack(Items.GOLD_INGOT, 1));
         });
         context.waitTicks(25);
         context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
@@ -153,7 +153,7 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
         context.waitTicks(2);
         context.clickScreenButton("Send");
         context.waitTicks(10);
-        return server.computeOnServer(s -> count(container(s, pos), Items.GOLD_INGOT) == 6 && player(s).getInventory().getItem(9).isEmpty());
+        return server.computeOnServer(s -> count(storage(s, pos), Items.GOLD_INGOT) == 6 && player(s).getInventory().getItem(9).isEmpty());
     }
 
     /** L'écran d'inventaire est encore ouvert. */
@@ -162,14 +162,17 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
         context.waitTicks(25);
         context.clickScreenButton("Fill");
         context.waitTicks(10);
-        boolean ok = server.computeOnServer(s -> player(s).getInventory().getItem(10).getCount() == 7 && count(container(s, pos), Items.GOLD_INGOT) == 0);
+        boolean ok = server.computeOnServer(s -> player(s).getInventory().getItem(10).getCount() == 7 && count(storage(s, pos), Items.GOLD_INGOT) == 0);
         context.runOnClient(mc -> mc.player.closeContainer());
         context.waitTicks(3);
         return ok;
     }
 
     private static boolean testHologram(ClientGameTestContext context, TestDedicatedServerContext server, BlockPos pos) {
-        server.runOnServer(s -> container(s, pos).setItem(0, new ItemStack(Items.EMERALD, 2)));
+        server.runOnServer(s -> {
+            clear(s, pos);
+            storage(s, pos).fillEmpty(new ItemStack(Items.EMERALD, 2));
+        });
         context.getInput().lookAt(pos);
         return within(context, mc -> ClientState.contents() != null && !ClientState.contents().icons().isEmpty()
                 && ClientState.contents().icons().getFirst().is(Items.EMERALD), 60);
@@ -205,18 +208,27 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
         boolean renameBox = context.computeOnClient(mc -> hasEditBox(mc.gui.screen(), "Rename container"));
 
         String sort = none;
-        boolean isContainer = server.computeOnServer(s -> s.overworld().getBlockEntity(pos) instanceof Container);
+        boolean isContainer = server.computeOnServer(s -> ContainerFinder.find(s.overworld(), pos) != null);
         if (buttons && isContainer) {
             server.runOnServer(s -> {
                 clear(s, pos);
-                container(s, pos).setItem(3, new ItemStack(Items.GOLD_INGOT, 10));
-                container(s, pos).setItem(7, new ItemStack(Items.GOLD_INGOT, 10));
+                storage(s, pos).fillEmpty(new ItemStack(Items.IRON_INGOT, 1));
+                storage(s, pos).fillEmpty(new ItemStack(Items.GOLD_INGOT, 10));
+                storage(s, pos).fillEmpty(new ItemStack(Items.GOLD_INGOT, 10));
                 player(s).containerMenu.broadcastChanges();
             });
             context.waitTicks(5);
             context.clickScreenButton("⇅");
             context.waitTicks(5);
-            sort = yes(server.computeOnServer(s -> container(s, pos).getItem(0).is(Items.GOLD_INGOT) && container(s, pos).getItem(0).getCount() == 20));
+            sort = yes(server.computeOnServer(s -> {
+                EeiStorage storage = storage(s, pos);
+                for (int i = 0; i < storage.size(); i++) {
+                    if (storage.get(i).is(Items.GOLD_INGOT)) {
+                        return storage.get(i).getCount() == 20;
+                    }
+                }
+                return false;
+            }));
         }
 
         String rename = none;
@@ -272,22 +284,26 @@ public class EeiDedicatedServerGameTest implements FabricClientGameTest {
         return server.getPlayerList().getPlayers().getFirst();
     }
 
-    private static Container container(MinecraftServer server, BlockPos pos) {
-        return (Container) server.overworld().getBlockEntity(pos);
+    private static EeiStorage storage(MinecraftServer server, BlockPos pos) {
+        return ContainerFinder.find(server.overworld(), pos).storage();
     }
 
+    /** Vide le stockage par ses propres règles, comme un joueur qui reprendrait tout. */
     private static void clear(MinecraftServer server, BlockPos pos) {
-        Container container = container(server, pos);
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            container.setItem(i, ItemStack.EMPTY);
+        EeiStorage storage = storage(server, pos);
+        Inventory inventory = player(server).getInventory();
+        for (int i = 0; i < storage.size(); i++) {
+            for (int tries = 0; tries < 64 && !storage.get(i).isEmpty(); tries++) {
+                storage.takeInto(storage.get(i).copyWithCount(1), inventory);
+            }
         }
     }
 
-    private static int count(Container container, Item item) {
+    private static int count(EeiStorage storage, Item item) {
         int total = 0;
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            if (container.getItem(i).is(item)) {
-                total += container.getItem(i).getCount();
+        for (int i = 0; i < storage.size(); i++) {
+            if (storage.get(i).is(item)) {
+                total += storage.get(i).getCount();
             }
         }
         return total;

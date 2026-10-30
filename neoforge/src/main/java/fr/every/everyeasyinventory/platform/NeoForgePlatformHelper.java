@@ -1,5 +1,12 @@
 package fr.every.everyeasyinventory.platform;
 
+import fr.every.everyeasyinventory.logic.EeiStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import org.jspecify.annotations.Nullable;
 import fr.every.everyeasyinventory.platform.services.IPlatformHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -16,6 +23,12 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     @Override
     public Path getConfigDir() {
         return FMLPaths.CONFIGDIR.get();
+    }
+
+    @Override
+    public @Nullable EeiStorage findStorage(Level level, BlockPos pos) {
+        ResourceHandler<ItemResource> handler = level.getCapability(Capabilities.Item.BLOCK, pos, null);
+        return handler != null ? new NeoForgeStorage(handler) : null;
     }
 
     @Override

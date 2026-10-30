@@ -628,6 +628,38 @@ public class EeiSelfTest {
         screenshot("eei_16_autre_mod");
         client(mc -> ClientState.setSearch("", null));
 
+        // ---- Bloc d'un autre mod qui n'expose qu'une capacité de NeoForge
+        BlockPos capability = feet.offset(-2, 0, -2);
+        command("setblock %d %d %d eei_selftest:test_capability_storage".formatted(capability.getX(), capability.getY(), capability.getZ()));
+        waitTicks(3);
+        check(onClient(mc -> ContainerFinder.isSupported(mc.level.getBlockEntity(capability))), "capacité : stockage reconnu");
+        server(s -> {
+            ContainerFinder.find(s.overworld(), capability).storage().fillEmpty(new ItemStack(Items.LAPIS_LAZULI, 1));
+            player(s).getInventory().setItem(23, new ItemStack(Items.LAPIS_LAZULI, 5));
+        });
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(25);
+        clickButton("Send");
+        waitTicks(5);
+        server(s -> {
+            check(ContainerFinder.find(s.overworld(), capability).storage().get(0).getCount() == 6, "capacité : Envoyer y dépose");
+            player(s).getInventory().setItem(24, new ItemStack(Items.LAPIS_LAZULI, 1));
+        });
+        waitTicks(25);
+        clickButton("Fill");
+        waitTicks(5);
+        server(s -> check(player(s).getInventory().getItem(24).getCount() == 7, "capacité : Remplir y prend"));
+        client(mc -> {
+            mc.player.closeContainer();
+            ClientState.setSearch("Lapis Lazuli", Items.LAPIS_LAZULI);
+        });
+        server(s -> ContainerFinder.find(s.overworld(), capability).storage().fillEmpty(new ItemStack(Items.LAPIS_LAZULI, 3)));
+        waitFor("recherche par capacité", mc -> ClientState.searchResults().contains(capability), 100);
+        client(mc -> mc.player.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(capability)));
+        waitFor("hologramme par capacité", mc -> ClientState.contents() != null && ClientState.contents().pos().equals(capability), 100);
+        client(mc -> ClientState.setSearch("", null));
+
         // ---- Écrans : un menu fait de simples cases ressemble à un coffre, pas un menu à cases spécialisées
         check(ServerActions.isChestLikeMenu(testMenu(false)), "menu d'un autre mod à cases simples : comme un coffre");
         check(!ServerActions.isChestLikeMenu(testMenu(true)), "menu à cases spécialisées : pas un coffre");

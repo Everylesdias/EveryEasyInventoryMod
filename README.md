@@ -38,8 +38,10 @@ claim mods, locked containers).
 
 ### Containers from other mods
 
-Any block exposing a standard inventory of 9 slots or more is treated as storage, machines excluded. Mods that do not
-use the standard inventory interface are not detected. Server owners can adjust this in
+Blocks exposing their items through the standard inventory, the Fabric Transfer API or NeoForge capabilities are treated
+as storage if they have 9 slots or more, or high-capacity slots like crates; machines are excluded as far as possible.
+Locks added by other mods are not checked, unless the mod enforces them in its own inventory: exclude such blocks if
+that matters on your server. Server owners can adjust the list in
 `config/everyeasyinventorymod-server.json`, then run `/eei reload`:
 
 ```json

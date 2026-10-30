@@ -1,5 +1,6 @@
 package fr.every.everyeasyinventory.logic;
 
+import fr.every.everyeasyinventory.platform.Services;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -38,7 +39,7 @@ public final class ContainerFinder {
      * @param key    position qui identifie le conteneur (la même pour les deux moitiés d'un coffre double)
      * @param center centre du conteneur (au milieu des deux moitiés pour un coffre double)
      */
-    public record Target(Container container, BlockPos key, Vec3 center) {
+    public record Target(EeiStorage storage, BlockPos key, Vec3 center) {
     }
 
     /** Taille minimale pour qu'un inventaire inconnu soit vu comme un stockage : les machines ont peu de cases. */
@@ -54,19 +55,23 @@ public final class ContainerFinder {
     }
 
     public static boolean isSupported(@Nullable BlockEntity blockEntity) {
-        if (!(blockEntity instanceof Container container)) {
+        if (blockEntity == null) {
             return false;
         }
-        if (!extraBlocks.isEmpty() || !excludedBlocks.isEmpty()) {
-            Identifier id = BuiltInRegistries.BLOCK.getKey(blockEntity.getBlockState().getBlock());
-            if (matches(excludedBlocks, id)) {
-                return false;
-            }
-            if (matches(extraBlocks, id)) {
-                return true;
-            }
+        Identifier id = BuiltInRegistries.BLOCK.getKey(blockEntity.getBlockState().getBlock());
+        if (matches(excludedBlocks, id)) {
+            return false;
         }
-        return looksLikeStorage(container);
+        boolean extra = matches(extraBlocks, id);
+        if (blockEntity instanceof Container container) {
+            return extra || looksLikeStorage(container);
+        }
+        // Les blocs du jeu sans inventaire (panneaux, lits...) n'ont pas besoin de la recherche ci-dessous.
+        if (id.getNamespace().equals("minecraft") || blockEntity.getLevel() == null) {
+            return false;
+        }
+        EeiStorage storage = Services.PLATFORM.findStorage(blockEntity.getLevel(), blockEntity.getBlockPos());
+        return storage != null && (extra || storage.looksLikeStorage());
     }
 
     private static boolean matches(Set<String> rules, Identifier id) {
@@ -110,18 +115,21 @@ public final class ContainerFinder {
             return null;
         }
         BlockState state = level.getBlockState(pos);
-        Container container;
-        if (state.getBlock() instanceof ChestBlock chest) {
-            container = ChestBlock.getContainer(chest, state, level, pos, true);
+        EeiStorage storage;
+        if (state.getBlock() instanceof ChestBlock chest && blockEntity instanceof Container) {
+            Container container = ChestBlock.getContainer(chest, state, level, pos, true);
+            storage = container != null ? new EeiStorage.OfContainer(container) : null;
+        } else if (blockEntity instanceof Container container) {
+            storage = new EeiStorage.OfContainer(container);
         } else {
-            container = (Container) blockEntity;
+            storage = Services.PLATFORM.findStorage(level, pos);
         }
-        if (container == null) {
+        if (storage == null) {
             return null;
         }
         BlockPos other = otherHalf(state, pos);
         Vec3 center = Vec3.atCenterOf(pos).add(Vec3.atCenterOf(other)).scale(0.5);
-        return new Target(container, key(state, pos), center);
+        return new Target(storage, key(state, pos), center);
     }
 
     /** Nom donné au conteneur (enclume ou renommage), première moitié d'abord pour un coffre double, comme le jeu. */

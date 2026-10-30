@@ -14,9 +14,12 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
 
 import java.util.Set;
 
@@ -34,9 +37,36 @@ public class TestStorage extends BlockEntity implements Container {
 
     private final NonNullList<ItemStack> items = NonNullList.withSize(18, ItemStack.EMPTY);
 
+    /** Variante qui n'expose que la capacité de NeoForge, sans l'interface Container. */
+    private static final DeferredBlock<Block> CAPABILITY_BLOCK = BLOCKS.registerBlock("test_capability_storage", CapabilityBlock::new);
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CapabilityEntity>> CAPABILITY_TYPE = TYPES.register("test_capability_storage",
+            () -> new BlockEntityType<>(CapabilityEntity::new, Set.of(CAPABILITY_BLOCK.get())));
+
     static void register(IEventBus modBus) {
         BLOCKS.register(modBus);
         TYPES.register(modBus);
+        modBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(Capabilities.Item.BLOCK, CAPABILITY_TYPE.get(), (entity, side) -> entity.handler));
+    }
+
+    private static final class CapabilityEntity extends BlockEntity {
+
+        final ItemStacksResourceHandler handler = new ItemStacksResourceHandler(18);
+
+        CapabilityEntity(BlockPos pos, BlockState state) {
+            super(CAPABILITY_TYPE.get(), pos, state);
+        }
+    }
+
+    private static final class CapabilityBlock extends Block implements EntityBlock {
+
+        CapabilityBlock(BlockBehaviour.Properties properties) {
+            super(properties);
+        }
+
+        @Override
+        public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+            return new CapabilityEntity(pos, state);
+        }
     }
 
     public TestStorage(BlockPos pos, BlockState state) {

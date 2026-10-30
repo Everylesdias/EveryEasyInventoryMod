@@ -19,6 +19,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.CrafterMenu;
 import net.minecraft.world.inventory.DispenserMenu;
 import net.minecraft.world.inventory.HopperMenu;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
@@ -69,26 +70,26 @@ public final class ServerActions {
     }
 
     /**
-     * Écran qui ressemble à un coffre : ceux du jeu, ou un menu d'un autre mod dont toutes les cases hors joueur sont
-     * de simples cases d'un même inventaire, au moins 9. Les machines et les établis ont des cases spécialisées.
+     * Écran qui ressemble à un coffre : ceux du jeu, ou un menu d'un autre mod dont toutes les cases hors joueur sont du
+     * même type, au moins 9. Les machines et les établis mélangent plusieurs types de cases (résultat, carburant...).
      */
     public static boolean isChestLikeMenu(AbstractContainerMenu menu) {
         if (menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu) {
             return true;
         }
-        if (menu instanceof DispenserMenu || menu instanceof HopperMenu) {
+        if (menu instanceof DispenserMenu || menu instanceof HopperMenu || menu instanceof CrafterMenu) {
             return false;
         }
-        Container shared = null;
+        Class<?> slotType = null;
         int count = 0;
         for (Slot slot : menu.slots) {
             if (slot.container instanceof Inventory) {
                 continue;
             }
-            if (slot.getClass() != Slot.class || (shared != null && slot.container != shared)) {
+            if (slotType != null && slot.getClass() != slotType) {
                 return false;
             }
-            shared = slot.container;
+            slotType = slot.getClass();
             count++;
         }
         return count >= 9;
@@ -138,7 +139,7 @@ public final class ServerActions {
         state.lastDepositTick = now;
 
         List<ContainerFinder.Target> targets = reachableContainers(player, level);
-        List<Set<Item>> contents = targets.stream().map(target -> itemsIn(target.container())).toList();
+        List<Set<Item>> contents = targets.stream().map(target -> itemsIn(target.storage())).toList();
 
         Inventory inventory = player.getInventory();
         int first = ServerSettings.bool(player, EeiSetting.DEPOSIT_HOTBAR) ? 0 : MAIN_START;
@@ -152,13 +153,13 @@ public final class ServerActions {
             int before = stack.getCount();
             // 1. Compléter les piles identiques déjà présentes, du conteneur le plus proche au plus loin.
             for (int t = 0; t < targets.size() && !stack.isEmpty(); t++) {
-                if (contents.get(t).contains(stack.getItem()) && fillExisting(targets.get(t).container(), stack)) {
+                if (contents.get(t).contains(stack.getItem()) && targets.get(t).storage().fillExisting(stack)) {
                     touched.add(t);
                 }
             }
             // 2. Puis les cases vides des conteneurs qui contiennent déjà cet item.
             for (int t = 0; t < targets.size() && !stack.isEmpty(); t++) {
-                if (contents.get(t).contains(stack.getItem()) && fillEmpty(targets.get(t).container(), stack)) {
+                if (contents.get(t).contains(stack.getItem()) && targets.get(t).storage().fillEmpty(stack)) {
                     touched.add(t);
                 }
             }
@@ -173,7 +174,7 @@ public final class ServerActions {
             return;
         }
         for (int t : touched) {
-            targets.get(t).container().setChanged();
+            targets.get(t).storage().setChanged();
             Vec3 center = targets.get(t).center();
             level.sendParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y + 0.6, center.z, 6, 0.3, 0.2, 0.3, 0.0);
         }
@@ -226,43 +227,15 @@ public final class ServerActions {
         return targets;
     }
 
-    private static Set<Item> itemsIn(Container container) {
+    private static Set<Item> itemsIn(EeiStorage storage) {
         Set<Item> items = new HashSet<>();
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            ItemStack stack = container.getItem(i);
+        for (int i = 0; i < storage.size(); i++) {
+            ItemStack stack = storage.get(i);
             if (!stack.isEmpty()) {
                 items.add(stack.getItem());
             }
         }
         return items;
-    }
-
-    private static boolean fillExisting(Container container, ItemStack stack) {
-        boolean changed = false;
-        for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
-            ItemStack existing = container.getItem(i);
-            int max = Math.min(container.getMaxStackSize(), existing.getMaxStackSize());
-            if (!existing.isEmpty() && existing.getCount() < max && ItemStack.isSameItemSameComponents(existing, stack)
-                    && container.canPlaceItem(i, stack)) {
-                int count = Math.min(max - existing.getCount(), stack.getCount());
-                existing.grow(count);
-                stack.shrink(count);
-                changed = true;
-            }
-        }
-        return changed;
-    }
-
-    private static boolean fillEmpty(Container container, ItemStack stack) {
-        boolean changed = false;
-        for (int i = 0; i < container.getContainerSize() && !stack.isEmpty(); i++) {
-            if (container.getItem(i).isEmpty() && container.canPlaceItem(i, stack)) {
-                int max = Math.min(container.getMaxStackSize(), stack.getMaxStackSize());
-                container.setItem(i, stack.split(Math.min(max, stack.getCount())));
-                changed = true;
-            }
-        }
-        return changed;
     }
 
     // ---------------------------------------------------------------- remplir
@@ -293,7 +266,7 @@ public final class ServerActions {
                 targets = reachableContainers(player, level);
             }
             for (ContainerFinder.Target target : targets) {
-                int taken = takeInto(target.container(), inventory, stack);
+                int taken = target.storage().takeInto(stack, inventory);
                 if (taken > 0) {
                     moved += taken;
                     touched.add(target);
@@ -309,7 +282,7 @@ public final class ServerActions {
             return;
         }
         for (ContainerFinder.Target target : touched) {
-            target.container().setChanged();
+            target.storage().setChanged();
             Vec3 center = target.center();
             level.sendParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y + 0.6, center.z, 6, 0.3, 0.2, 0.3, 0.0);
         }
@@ -317,21 +290,6 @@ public final class ServerActions {
         player.containerMenu.broadcastChanges();
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.5F, 0.9F);
         player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.fill", moved, touched.size()));
-    }
-
-    /** Prend dans le conteneur les items identiques qui manquent à la pile ; renvoie le nombre pris. */
-    private static int takeInto(Container container, Inventory inventory, ItemStack stack) {
-        int total = 0;
-        for (int i = 0; i < container.getContainerSize() && stack.getCount() < stack.getMaxStackSize(); i++) {
-            ItemStack source = container.getItem(i);
-            if (!source.isEmpty() && ItemStack.isSameItemSameComponents(source, stack) && container.canTakeItem(inventory, i, source)) {
-                int count = Math.min(stack.getMaxStackSize() - stack.getCount(), source.getCount());
-                container.removeItem(i, count);
-                stack.grow(count);
-                total += count;
-            }
-        }
-        return total;
     }
 
     // ---------------------------------------------------------------- hologramme
@@ -362,9 +320,9 @@ public final class ServerActions {
         }
         Map<Item, ItemStack> icons = new LinkedHashMap<>();
         Map<Item, Integer> counts = new LinkedHashMap<>();
-        Container container = target.container();
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            ItemStack stack = container.getItem(i);
+        EeiStorage storage = target.storage();
+        for (int i = 0; i < storage.size(); i++) {
+            ItemStack stack = storage.get(i);
             if (stack.isEmpty()) {
                 continue;
             }
@@ -461,7 +419,7 @@ public final class ServerActions {
         Vec3 eyes = player.getEyePosition();
         double maxSqr = SEARCH_RADIUS * SEARCH_RADIUS;
         List<BlockPos> keys = containersAround(player, level, SEARCH_RADIUS, pos -> Vec3.atCenterOf(pos).distanceToSqr(eyes) <= maxSqr).stream()
-                .filter(target -> ItemSearch.contains(target.container(), state.searchMembers))
+                .filter(target -> ItemSearch.contains(target.storage(), state.searchMembers))
                 .limit(MAX_SEARCH_RESULTS).map(ContainerFinder.Target::key).toList();
         state.searchPos = player.blockPosition();
         int hash = keys.hashCode() * 31 + 1;

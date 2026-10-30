@@ -2,7 +2,6 @@ package fr.every.everyeasyinventory.logic;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
@@ -52,9 +51,9 @@ public final class ItemSearch {
         return false;
     }
 
-    public static boolean contains(Container container, Set<Item> members) {
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            if (matches(container.getItem(i), members)) {
+    public static boolean contains(EeiStorage storage, Set<Item> members) {
+        for (int i = 0; i < storage.size(); i++) {
+            if (matches(storage.get(i), members)) {
                 return true;
             }
         }

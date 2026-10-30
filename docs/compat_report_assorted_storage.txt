@@ -1,10 +1,10 @@
 bloc | reconnu | Envoyer | Remplir | hologramme | recherche | écran | boutons | barre | tri | renommage | classe
 minecraft:chest | oui | oui | oui | oui | oui | ContainerScreen | oui | oui | oui | oui | ChestBlockEntity
 minecraft:barrel | oui | oui | oui | oui | oui | ContainerScreen | oui | oui | oui | oui | BarrelBlockEntity
-assortedchests:chest_iron | NON | - | - | - | - | LockedMaterialScreen (pas comme un coffre) | NON | NON | - | - | LockedChestBlockEntity
-assortedbarrels:barrel_iron | NON | - | - | - | - | LockedMaterialScreen (pas comme un coffre) | NON | NON | - | - | LockedBarrelBlockEntity
-assortedcrates:oak_crate | NON | - | - | - | - | aucun | - | - | - | - | CrateBlockEntity
-assortedcrates:oak_crate_double | NON | - | - | - | - | aucun | - | - | - | - | CrateBlockEntity
+assortedchests:chest_iron | oui | oui | oui | oui | oui | LockedMaterialScreen | oui | oui | oui | - | LockedChestBlockEntity
+assortedbarrels:barrel_iron | oui | oui | oui | oui | oui | LockedMaterialScreen | oui | oui | oui | - | LockedBarrelBlockEntity
+assortedcrates:oak_crate | oui | oui | oui | oui | oui | aucun | - | - | - | - | CrateBlockEntity
+assortedcrates:oak_crate_double | oui | oui | oui | oui | oui | aucun | - | - | - | - | CrateBlockEntity
 minecraft:furnace | exclu
 minecraft:hopper | exclu
 minecraft:dropper | exclu
