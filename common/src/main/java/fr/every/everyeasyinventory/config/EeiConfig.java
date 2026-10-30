@@ -15,7 +15,6 @@ import java.nio.file.Path;
  */
 public final class EeiConfig {
 
-    // --- Serveur ---
     /** Demi-côté du cube du rangement express : 5 donne un cube de 11 × 11 × 11 centré sur le joueur. */
     public int depositRadius = 5;
     /** Le rangement express vide-t-il aussi la hotbar ? */
@@ -23,9 +22,15 @@ public final class EeiConfig {
     /** Distance maximale (en blocs, depuis les yeux) pour l'hologramme. */
     public double hologramMaxDistance = 3.0;
     public boolean hotbarRefill = true;
-
-    // --- Client ---
     public boolean hologramEnabled = true;
+    /** Barre de recherche d'item. */
+    public boolean searchEnabled = true;
+    /** Contour des conteneurs qui ont l'item cherché. */
+    public boolean outlineEnabled = true;
+    /** Couleur du contour, en 0xRRGGBB. */
+    public int outlineColor = 0xFFC21A;
+    /** Épaisseur du contour, de 1 à 5. */
+    public int outlineThickness = 3;
     /** Cases verrouillées de l'inventaire du joueur : bit i = case i (0-8 hotbar, 9-35 inventaire principal). */
     public long lockedSlots = 0L;
 
@@ -50,6 +55,9 @@ public final class EeiConfig {
                 EeiConfig config = GSON.fromJson(Files.readString(path), EeiConfig.class);
                 if (config != null) {
                     config.depositRadius = Math.clamp(config.depositRadius, 1, 16);
+                    config.hologramMaxDistance = Math.clamp(config.hologramMaxDistance, 1.0, 6.0);
+                    config.outlineThickness = Math.clamp(config.outlineThickness, 1, 5);
+                    config.outlineColor &= 0xFFFFFF;
                     return config;
                 }
             } catch (IOException | RuntimeException e) {

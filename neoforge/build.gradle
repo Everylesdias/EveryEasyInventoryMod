@@ -28,6 +28,11 @@ neoForge {
             client()
             gameDirectory = this.mkdir(this.file('runs/client'))
         }
+        // Démarre un serveur dédié sans EULA ni monde à garder : vérifie que le mod s'y charge.
+        gameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = this.mkdir(this.file('runs/gametest-server'))
+        }
         selftest {
             client()
             gameDirectory = this.mkdir(this.file('runs/selftest'))

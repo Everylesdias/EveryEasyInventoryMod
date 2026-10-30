@@ -1,11 +1,13 @@
 package fr.every.everyeasyinventory.logic;
 
+import fr.every.everyeasyinventory.config.EeiSetting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -35,6 +37,9 @@ public final class PlayerState {
     public Set<Item> searchMembers = Set.of();
     public @Nullable BlockPos searchPos;
     public int searchHash;
+
+    /** Réglages envoyés par le client du joueur ; ce qui manque prend la valeur par défaut. */
+    public final Map<EeiSetting, Object> clientSettings = new EnumMap<>(EeiSetting.class);
 
     public static synchronized PlayerState of(ServerPlayer player) {
         return STATES.computeIfAbsent(player, p -> new PlayerState());

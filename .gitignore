@@ -28,3 +28,4 @@ runclient.log
 neoclient.log
 selftest.log
 release
+server.log

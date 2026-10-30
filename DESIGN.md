@@ -210,7 +210,31 @@ menu ouvert est bien celui de ce conteneur, que le joueur y a accès, nettoie le
 Nécessite le mod sur le serveur : sans lui, le titre n'est pas cliquable. Coût : un paquet par renommage ;
 le nom voyage avec le résumé de l'hologramme déjà existant.
 
-## 8. État de l'implémentation (v1.2.0, 2026-10-29)
+## 8. Réglages et forçage par le serveur (v1.3.0)
+
+**Demande** : choisir la touche de tri dans le menu du jeu ; un écran de réglages (couleur et épaisseur du contour,
+contour et recherche activables) ; le serveur peut forcer les réglages des joueurs.
+
+### Choix validés (2026-10-30)
+
+- **Touche de tri** dans Options → Commandes, catégorie Inventaire, R par défaut. Remplace la décision « touche fixe ».
+- **Accès à l'écran** : bouton ⚙ dans l'inventaire + liste des mods (native sous NeoForge, Mod Menu facultatif sous Fabric).
+- **Couleur** : palette de 8 couleurs + champ #RRGGBB. **Épaisseur** : curseur de 1 à 5.
+- **Contenu** : tous les réglages du mod (9), pour ne plus avoir à éditer le JSON. Remplace « pas d'écran de configuration ».
+- **Forçage** : fichier serveur et commandes `/eei force|free|list|reload` (opérateurs). Réglage par réglage : libre ou
+  forcé. Un réglage forcé est grisé avec un cadenas, et la valeur du joueur est conservée pour les autres serveurs.
+
+### Fonctionnement
+
+- `EeiSetting` décrit chaque réglage (clé, type, bornes). Le client envoie ses réglages à la connexion et à chaque
+  changement ; le serveur répond avec ceux qu'il force. Valeur appliquée : forcée, sinon celle du client, sinon par défaut.
+- Le serveur **applique lui-même** recherche, contour, hologramme, rayon et hotbar d'Envoyer, remplissage : un client
+  modifié ne peut pas les contourner. Couleur et épaisseur ne concernent que l'affichage du client.
+- Contour désactivé : le client ne demande plus de recherche dans le monde, donc aucun coût serveur ; la mise en
+  évidence dans l'inventaire reste active.
+- Envoyer parcourt désormais les block entities des tronçons chargés, comme la recherche, au lieu de tester chaque position.
+
+## 9. État de l'implémentation (v1.3.0, 2026-10-30)
 
 Tout est codé pour les deux loaders. Le scénario de test en jeu passe sous Fabric
 (`./gradlew :fabric:runClientGameTest`) et sous NeoForge (`./gradlew :neoforge:runSelftest`) : rangement
@@ -219,7 +243,10 @@ prendre / tout déposer, molette, Ctrl+Maj+clic, Maj+glisser, remplissage de la 
 (autocomplétion, E sans effet pendant la saisie, cadre dans l'inventaire, seul le coffre proche dont une shulker
 a l'item est trouvé, résultat mis à jour quand il est vidé, barre vidée = recherche arrêtée), renommage
 (clic sur le titre, Entrée, nom vanilla posé par le serveur, Échap annule sans fermer, nom au-dessus de
-l'hologramme même coffre vide, champ vidé = nom par défaut).
+l'hologramme même coffre vide, champ vidé = nom par défaut), réglages (bouton ⚙, touche de tri réassignée, couleur,
+épaisseur, contour désactivé) et forçage (`/eei force`/`free`/`reload`, champ grisé, recherche, hologramme et rayon
+refusés). `./gradlew :neoforge:runGameTestServer` vérifie que le mod se charge sur un serveur dédié. Pas encore
+testé : un vrai client qui rejoint un serveur dédié distant, et un serveur dédié Fabric.
 
 Écarts et précisions par rapport à la conception :
 
@@ -230,7 +257,7 @@ l'hologramme même coffre vide, champ vidé = nom par défaut).
   normaux et marchent aussi sur un serveur vanilla.
 - **Hologramme** : dessiné dans le HUD à l'endroit où le dessus du conteneur se projette à l'écran ;
   il fait donc toujours face au joueur. Sa taille diminue avec la distance (de 100 % à 50 %).
-- **Raccourcis** : `R` trie la partie survolée (pas encore réassignable) ; Alt + clic verrouille ou
+- **Raccourcis** : la touche de tri (`R` par défaut) trie la partie survolée ; Alt + clic verrouille ou
   déverrouille une case de l'inventaire ; molette bas/haut = envoyer / ramener un item.
 - **Remplissage de la hotbar** : désactivé pendant qu'un conteneur est ouvert (sinon déposer le dernier
   item tenu en main le remplacerait aussitôt).
@@ -242,10 +269,10 @@ l'hologramme même coffre vide, champ vidé = nom par défaut).
   (commande, autre mod), le titre n'est pas cliquable. Le titre de l'écran ouvert change tout de suite.
 - **Clics** : les raccourcis prennent la case sous la position du clic (et non la case survolée à l'image
   précédente), comme la molette et Maj+glisser.
-- **Configuration** : `config/everyeasyinventorymod.json` (rayon, hotbar incluse, distance de
-  l'hologramme, remplissage, hologramme activé, cases verrouillées). Pas encore d'écran de configuration.
+- **Configuration** : `config/everyeasyinventorymod.json`, modifiable depuis l'écran de réglages (voir §8) ; les
+  cases verrouillées y sont aussi enregistrées.
 
-## 9. Journal des décisions
+## 10. Journal des décisions
 
 | Date | Décision |
 |---|---|
@@ -261,3 +288,4 @@ l'hologramme même coffre vide, champ vidé = nom par défaut).
 | 2026-10-29 | Cases verrouillées : petit cadenas dans le coin haut droit, sans teinte. |
 | 2026-10-29 | Recherche d'item (v1.1) : contour seulement si visible, jaune doré ; recherche par groupe, shulkers rangées comprises ; barre dans l'inventaire et les écrans de conteneur ; oubliée en quittant ; cadre + assombrissement dans l'inventaire ; analyse à la demande côté serveur (block entities des tronçons chargés, toutes les 10 ticks, seulement si recherche active). |
 | 2026-10-29 | Renommer un conteneur (v1.2) : nom vanilla du bloc, champ à la place du titre (Entrée / Échap / vide = défaut), nom au-dessus de l'hologramme même vide, droits = qui peut l'ouvrir. |
+| 2026-10-30 | Réglages (v1.3) : touche de tri dans Options → Commandes, écran avec tous les réglages (bouton ⚙ + liste des mods), couleur par palette + #RRGGBB, épaisseur 1-5 ; serveur : fichier et commandes `/eei`, réglage par réglage, grisé avec cadenas. Remplace « pas d'écran de configuration, touche R fixe ». |

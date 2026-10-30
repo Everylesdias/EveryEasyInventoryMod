@@ -10,7 +10,7 @@ Inventory and chest management for Minecraft 26.3, for **Fabric** and **NeoForge
 | Where | What | How |
 |---|---|---|
 | Inventory | Send items to the nearby chests, barrels and shulker boxes (±5 blocks) that already contain them | **Send** button (top left) |
-| Inventory, chests | Sort | **⇅** button, or **R** over the part to sort |
+| Inventory, chests | Sort | **⇅** button, or the sort key (default **R**, change it in Options → Controls) over the part to sort |
 | Chests | Take all / deposit all / deposit only what the chest already has | **↓**, **↑**, **⇡** buttons |
 | Everywhere | Move every stack you drag over | **Shift + drag** |
 | Everywhere | Move every item of the same type | **Ctrl + Shift + click** |
@@ -41,8 +41,33 @@ claim mods, locked containers).
 - **NeoForge**: NeoForge 26.3.
 - Java 25 (the default for Minecraft 26.3).
 
-Settings live in `config/everyeasyinventorymod.json` (deposit radius, hotbar included in Send, hologram
-distance, hand refill, hologram on/off).
+## Settings
+
+Open them with the **⚙** button in the inventory, or from the mod list (NeoForge, or Fabric with
+[Mod Menu](https://modrinth.com/mod/modmenu)): search bar, container outline with its color and thickness, hologram
+and its distance, Send radius, Send hotbar too, hand refill. They are saved in `config/everyeasyinventorymod.json`.
+
+### Forcing settings on a server
+
+Each setting is either free or forced to a value. Forced settings are greyed out with a padlock for players, and
+the server itself refuses search, hologram and Send beyond what it allows (color and thickness are display only).
+
+```
+/eei force searchEnabled false
+/eei force outlineColor #FF0000
+/eei free searchEnabled
+/eei list
+/eei reload
+```
+
+The commands require operator rights and are saved in `config/everyeasyinventorymod-server.json`:
+
+```json
+{ "forced": { "searchEnabled": "false", "outlineColor": "#FF0000" } }
+```
+
+Keys: `searchEnabled`, `outlineEnabled`, `outlineColor`, `outlineThickness` (1-5), `hologramEnabled`,
+`hologramMaxDistance` (1-6), `depositRadius` (1-16), `depositIncludesHotbar`, `hotbarRefill`.
 
 ## Build
 

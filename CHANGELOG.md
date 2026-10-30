@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- The sort key can be changed in Options → Controls (default: R).
+- New settings screen, from the ⚙ button in the inventory or the mod list (NeoForge, or Fabric with Mod Menu):
+  search bar on/off, container outline on/off, outline color (palette or #RRGGBB) and thickness, hologram on/off and
+  distance, Send radius, Send hotbar too, hand refill.
+- Servers can force any setting, in `config/everyeasyinventorymod-server.json` or with `/eei force`, `/eei free`,
+  `/eei list` and `/eei reload` (operators). Forced settings are greyed out with a padlock for players, and the
+  server refuses search, hologram and Send beyond what it allows.
+- Send now reads only the containers of loaded chunks instead of testing every block in its range.
+
 ## 1.2.0
 
 - Rename chests, barrels and shulker boxes by clicking the title of their screen (vanilla name, like an anvil).

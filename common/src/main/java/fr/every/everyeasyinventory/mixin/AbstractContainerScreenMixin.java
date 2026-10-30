@@ -176,7 +176,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             cir.setReturnValue(true);
             return;
         }
-        if (!ScreenTweaks.isExcluded(this) && ScreenTweaks.keyPressed(this, event.key())) {
+        if (!ScreenTweaks.isExcluded(this) && ScreenTweaks.keyPressed(this, event)) {
             cir.setReturnValue(true);
         }
     }

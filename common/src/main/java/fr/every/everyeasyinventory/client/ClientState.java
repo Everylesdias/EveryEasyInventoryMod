@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.client;
 
 import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.config.EeiSetting;
 import fr.every.everyeasyinventory.logic.ContainerFinder;
 import fr.every.everyeasyinventory.logic.ItemSearch;
 import fr.every.everyeasyinventory.network.Payloads;
@@ -13,7 +14,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.jspecify.annotations.Nullable;
 
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -34,6 +38,11 @@ public final class ClientState {
     private static @Nullable Item searchItem;
     private static Set<Item> searchMembers = Set.of();
     private static List<BlockPos> searchResults = List.of();
+    /** Dernier item envoyé au serveur pour la recherche dans le monde. */
+    private static @Nullable Item searchSent;
+
+    /** Réglages forcés par le serveur connecté. */
+    private static final Map<EeiSetting, Object> FORCED = new EnumMap<>(EeiSetting.class);
 
     private ClientState() {
     }
@@ -62,6 +71,73 @@ public final class ClientState {
         config.save();
         if (serverHasMod()) {
             Services.PLATFORM.sendToServer(new Payloads.LockedSlots(config.lockedSlots));
+        }
+    }
+
+    // ---------------------------------------------------------------- réglages
+
+    /** Valeur qui s'applique : celle forcée par le serveur, sinon celle du joueur. */
+    public static Object value(EeiSetting setting) {
+        Object forced = FORCED.get(setting);
+        return forced != null ? forced : setting.read(EeiConfig.get());
+    }
+
+    public static boolean bool(EeiSetting setting) {
+        return (Boolean) value(setting);
+    }
+
+    public static boolean isForced(EeiSetting setting) {
+        return FORCED.containsKey(setting);
+    }
+
+    /** Le joueur vient de changer un réglage. */
+    public static void settingsChanged() {
+        EeiConfig.get().save();
+        if (serverHasMod()) {
+            sendSettings();
+        }
+        applySearchSettings();
+    }
+
+    private static void sendSettings() {
+        Map<String, String> values = new HashMap<>();
+        for (EeiSetting setting : EeiSetting.values()) {
+            values.put(setting.key, setting.format(setting.read(EeiConfig.get())));
+        }
+        Services.PLATFORM.sendToServer(new Payloads.ClientSettings(values));
+    }
+
+    public static void onForcedSettings(Payloads.ForcedSettings payload) {
+        FORCED.clear();
+        payload.values().forEach((key, text) -> {
+            EeiSetting setting = EeiSetting.byKey(key);
+            Object value = setting == null ? null : setting.parse(text);
+            if (value != null) {
+                FORCED.put(setting, value);
+            }
+        });
+        applySearchSettings();
+        if (Minecraft.getInstance().gui.screen() instanceof EeiSettingsScreen screen) {
+            screen.refresh();
+        }
+    }
+
+    /** Recherche désactivée : on l'oublie. Sinon, le serveur ne cherche dans le monde que si le contour est affiché. */
+    private static void applySearchSettings() {
+        if (!bool(EeiSetting.SEARCH_ENABLED)) {
+            setSearch("", null);
+        }
+        syncSearch();
+    }
+
+    private static void syncSearch() {
+        Item wanted = bool(EeiSetting.OUTLINE_ENABLED) ? searchItem : null;
+        if (wanted == null) {
+            searchResults = List.of();
+        }
+        if (wanted != searchSent && serverHasMod()) {
+            searchSent = wanted;
+            Services.PLATFORM.sendToServer(new Payloads.Search(Optional.ofNullable(wanted).map(Item::builtInRegistryHolder)));
         }
     }
 
@@ -94,9 +170,7 @@ public final class ClientState {
         searchItem = item;
         searchMembers = item == null ? Set.of() : ItemSearch.members(item);
         searchResults = List.of();
-        if (serverHasMod()) {
-            Services.PLATFORM.sendToServer(new Payloads.Search(Optional.ofNullable(item).map(Item::builtInRegistryHolder)));
-        }
+        syncSearch();
     }
 
     public static void onSearchResults(Payloads.SearchResults payload) {
@@ -111,9 +185,12 @@ public final class ClientState {
             searchItem = null;
             searchMembers = Set.of();
             searchResults = List.of();
+            searchSent = null;
+            FORCED.clear();
         }
         if (minecraft.player == null || minecraft.level == null || !serverHasMod()) {
             lockedSlotsSent = false;
+            FORCED.clear();
             target = null;
             targetBlock = null;
             contents = null;
@@ -121,6 +198,7 @@ public final class ClientState {
         }
         if (!lockedSlotsSent) {
             Services.PLATFORM.sendToServer(new Payloads.LockedSlots(EeiConfig.get().lockedSlots));
+            sendSettings();
             lockedSlotsSent = true;
         }
         updateTarget(minecraft);
@@ -129,9 +207,8 @@ public final class ClientState {
     private static void updateTarget(Minecraft minecraft) {
         BlockPos newTarget = null;
         BlockPos newBlock = null;
-        EeiConfig config = EeiConfig.get();
-        if (config.hologramEnabled && minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
-                && minecraft.player.getEyePosition().distanceTo(hit.getLocation()) <= config.hologramMaxDistance) {
+        if (bool(EeiSetting.HOLOGRAM_ENABLED) && minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
+                && minecraft.player.getEyePosition().distanceTo(hit.getLocation()) <= (Double) value(EeiSetting.HOLOGRAM_DISTANCE)) {
             BlockPos pos = hit.getBlockPos();
             if (ContainerFinder.isSupported(minecraft.level.getBlockEntity(pos))) {
                 BlockState state = minecraft.level.getBlockState(pos);

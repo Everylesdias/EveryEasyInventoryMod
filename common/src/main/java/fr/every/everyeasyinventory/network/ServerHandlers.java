@@ -1,8 +1,12 @@
 package fr.every.everyeasyinventory.network;
 
 import fr.every.everyeasyinventory.logic.PlayerState;
+import fr.every.everyeasyinventory.config.EeiSetting;
 import fr.every.everyeasyinventory.logic.ServerActions;
+import fr.every.everyeasyinventory.logic.ServerSettings;
 import net.minecraft.server.level.ServerPlayer;
+
+import java.util.Map;
 
 /**
  * Réception des paquets client → serveur. Appelé sur le thread du serveur par chaque loader.
@@ -34,5 +38,19 @@ public final class ServerHandlers {
 
     public static void onRename(Payloads.Rename payload, ServerPlayer player) {
         ServerActions.rename(player, payload.containerId(), payload.pos(), payload.name());
+    }
+
+    /** Garde les réglages valides du joueur et lui répond avec ceux que le serveur force. */
+    public static void onClientSettings(Payloads.ClientSettings payload, ServerPlayer player) {
+        Map<EeiSetting, Object> settings = PlayerState.of(player).clientSettings;
+        settings.clear();
+        payload.values().forEach((key, text) -> {
+            EeiSetting setting = EeiSetting.byKey(key);
+            Object value = setting == null ? null : setting.parse(text);
+            if (value != null) {
+                settings.put(setting, value);
+            }
+        });
+        ServerSettings.sendTo(player);
     }
 }

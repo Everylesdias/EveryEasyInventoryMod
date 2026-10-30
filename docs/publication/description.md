@@ -4,7 +4,7 @@ EveryEasyInventoryMod brings the classic inventory tweaks together with a few ne
 
 ## Inventory and chests
 
-- **Sort** with one button (⇅) or the **R** key, over the inventory or the chest.
+- **Sort** with one button (⇅) or a key of your choice (default **R**), over the inventory or the chest.
 - **Take all / deposit all / deposit only what the chest already has** (↓ ↑ ⇡).
 - **Shift + drag** to move every stack you pass over, **Ctrl + Shift + click** to move every item of the same type,
   **scroll** to move items one by one.
@@ -34,9 +34,16 @@ Type in the **search bar** below your inventory, pick an item from the suggestio
 Click the **title** of a chest, barrel or shulker box screen to rename it. It is the vanilla name (like an
 anvil), kept when the block is broken, and it shows above the content hologram.
 
+## Settings
+
+The **⚙** button in your inventory opens the settings: search bar, outline color and thickness, hologram, Send radius,
+hand refill and more.
+
 ## Server friendly
 
 - Install on both sides for every feature. On a server without the mod, the in-screen tools still work.
+- **Server owners can force any setting** with `/eei force` or a config file: forced settings are greyed out for
+  players, and the server refuses search, hologram and Send beyond what it allows.
 - Built for servers with many chests: searches and holograms only read loaded containers near the players using
   them, a few times per second at most, and send packets only when something changes.
 - Every action checks that the player may open the container (spawn protection, claim mods, locked containers).

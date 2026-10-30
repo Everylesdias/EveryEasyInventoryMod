@@ -6,8 +6,8 @@ par vous.
 ## Avant de commencer
 
 1. **Construire les jars** : `./gradlew build`, puis prendre
-   - `fabric/build/libs/everyeasyinventorymod-fabric-26.3-1.2.0.jar`
-   - `neoforge/build/libs/everyeasyinventorymod-neoforge-26.3-1.2.0.jar`
+   - `fabric/build/libs/everyeasyinventorymod-fabric-26.3-1.3.0.jar`
+   - `neoforge/build/libs/everyeasyinventorymod-neoforge-26.3-1.3.0.jar`
 
    (pas les `-sources` ni `-javadoc`).
 2. **Publier le code sur GitHub** dans un dépôt public `Everylesdias/EveryEasyInventoryMod` : c'est le lien
@@ -47,10 +47,10 @@ par vous.
 
 | | Fichier | Loader | Minecraft | Dépendance | Nom de version |
 |---|---|---|---|---|---|
-| 1 | `everyeasyinventorymod-fabric-26.3-1.2.0.jar` | Fabric | 26.3 | Fabric API (requise) | 1.2.0+fabric |
-| 2 | `everyeasyinventorymod-neoforge-26.3-1.2.0.jar` | NeoForge | 26.3 | aucune | 1.2.0+neoforge |
+| 1 | `everyeasyinventorymod-fabric-26.3-1.3.0.jar` | Fabric | 26.3 | Fabric API (requise) | 1.3.0+fabric |
+| 2 | `everyeasyinventorymod-neoforge-26.3-1.3.0.jar` | NeoForge | 26.3 | aucune | 1.3.0+neoforge |
 
-Canal : **Release**. Changelog : la section 1.2.0 de [CHANGELOG.md](../../CHANGELOG.md) (ou tout le fichier pour la
+Canal : **Release**. Changelog : la section 1.3.0 de [CHANGELOG.md](../../CHANGELOG.md) (ou tout le fichier pour la
 première publication).
 
 ## Après l'envoi

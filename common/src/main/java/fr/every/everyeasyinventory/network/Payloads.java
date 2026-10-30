@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.network;
 
 import fr.every.everyeasyinventory.Constants;
+import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -13,7 +14,9 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -23,6 +26,9 @@ public final class Payloads {
 
     private Payloads() {
     }
+
+    private static final StreamCodec<ByteBuf, Map<String, String>> SETTINGS_CODEC =
+            ByteBufCodecs.map(HashMap::new, ByteBufCodecs.stringUtf8(64), ByteBufCodecs.stringUtf8(64), 32);
 
     private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> createType(String path) {
         return new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Constants.MOD_ID, path));
@@ -117,6 +123,32 @@ public final class Payloads {
 
         @Override
         public Type<SearchResults> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client → serveur : réglages du joueur (clé → valeur en texte), à la connexion et à chaque changement. */
+    public record ClientSettings(Map<String, String> values) implements CustomPacketPayload {
+        public static final Type<ClientSettings> TYPE = createType("client_settings");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ClientSettings> CODEC = StreamCodec.composite(
+                SETTINGS_CODEC, ClientSettings::values,
+                ClientSettings::new);
+
+        @Override
+        public Type<ClientSettings> type() {
+            return TYPE;
+        }
+    }
+
+    /** Serveur → client : réglages forcés par le serveur (clé → valeur en texte) ; ce qui manque reste libre. */
+    public record ForcedSettings(Map<String, String> values) implements CustomPacketPayload {
+        public static final Type<ForcedSettings> TYPE = createType("forced_settings");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ForcedSettings> CODEC = StreamCodec.composite(
+                SETTINGS_CODEC, ForcedSettings::values,
+                ForcedSettings::new);
+
+        @Override
+        public Type<ForcedSettings> type() {
             return TYPE;
         }
     }

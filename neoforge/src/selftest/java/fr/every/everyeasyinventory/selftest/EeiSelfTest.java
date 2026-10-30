@@ -4,6 +4,11 @@ import com.mojang.blaze3d.platform.InputConstants;
 import fr.every.everyeasyinventory.Constants;
 import fr.every.everyeasyinventory.client.ClientState;
 import fr.every.everyeasyinventory.client.EeiScreenAccess;
+import fr.every.everyeasyinventory.client.EeiSettingsScreen;
+import fr.every.everyeasyinventory.client.Keys;
+import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.config.EeiSetting;
+import fr.every.everyeasyinventory.logic.PlayerState;
 import fr.every.everyeasyinventory.network.Payloads;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,6 +20,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -55,7 +61,8 @@ import net.neoforged.neoforge.common.NeoForge;
 /**
  * Même scénario que le gametest client Fabric, joué dans un vrai client NeoForge avec un monde solo :
  * rangement express, case verrouillée (Alt + clic), hologramme, tri, tout prendre / tout déposer, molette,
- * Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar, recherche d'item, renommage d'un conteneur.
+ * Ctrl+Maj+clic, Maj+glisser, remplissage de la hotbar, recherche d'item, renommage d'un conteneur,
+ * écran de réglages, touche de tri réassignée, réglages forcés par le serveur avec /eei.
  * Lancer avec {@code ./gradlew :neoforge:runSelftest} ; le client se ferme à la fin et écrit le verdict dans
  * neoforge/runs/selftest/eei_selftest_result.txt (captures dans neoforge/runs/selftest/screenshots).
  *
@@ -388,6 +395,144 @@ public class EeiSelfTest {
         server(s -> check(((BaseContainerBlockEntity) s.overworld().getBlockEntity(chestA)).getCustomName() == null, "champ vidé : nom par défaut"));
         check(onClient(mc -> mc.gui.screen().getTitle().getString()).equals("Chest"), "titre par défaut : " + onClient(mc -> mc.gui.screen().getTitle().getString()));
         client(mc -> mc.player.closeContainer());
+        waitTicks(3);
+
+        // ---- Réglages : le bouton ⚙ ouvre l'écran, Échap revient à l'inventaire
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+        clickButton("⚙");
+        waitFor("réglages ouverts", mc -> mc.gui.screen() instanceof EeiSettingsScreen, 100);
+        screenshot("eei_12_reglages");
+        pressKey(InputConstants.KEY_ESCAPE);
+        waitFor("retour à l'inventaire", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+
+        // ---- Touche de tri réassignée : R ne trie plus, G trie
+        server(s -> {
+            Inventory inv = player(s).getInventory();
+            inv.clearContent();
+            inv.setItem(9, new ItemStack(Items.COBBLESTONE, 10));
+            inv.setItem(12, new ItemStack(Items.COBBLESTONE, 10));
+            player(s).containerMenu.broadcastChanges();
+        });
+        waitTicks(5);
+        client(mc -> {
+            Keys.SORT.setKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_G));
+            KeyMapping.resetMapping();
+        });
+        pressKey(InputConstants.KEY_R);
+        waitTicks(5);
+        server(s -> {
+            check(player(s).getInventory().getItem(9).getCount() == 10, "R ne doit plus trier une fois la touche changée");
+        });
+        pressKey(InputConstants.KEY_G);
+        waitTicks(5);
+        server(s -> {
+            Inventory inv = player(s).getInventory();
+            check(inv.getItem(9).getCount() == 20 && inv.getItem(12).isEmpty(), "la nouvelle touche doit trier : case 9 = " + inv.getItem(9));
+        });
+        client(mc -> {
+            Keys.SORT.setKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_R));
+            KeyMapping.resetMapping();
+            mc.player.closeContainer();
+        });
+        waitTicks(3);
+
+        // ---- Couleur et épaisseur du contour, contour désactivé
+        server(s -> {
+            container(s, chestA).setItem(0, new ItemStack(Items.DIAMOND, 2));
+        });
+        client(mc -> {
+            EeiConfig.get().outlineColor = 0xFF3B30;
+            EeiConfig.get().outlineThickness = 5;
+            ClientState.settingsChanged();
+            ClientState.setSearch("Diamond", Items.DIAMOND);
+        });
+        waitFor("!ClientState.searchResults().isEmpty()", mc -> !ClientState.searchResults().isEmpty(), 100);
+        client(mc -> mc.player.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(chestA)));
+        waitTicks(5);
+        screenshot("eei_13_contour_reglages");
+        client(mc -> {
+            EeiConfig.get().outlineEnabled = false;
+            ClientState.settingsChanged();
+        });
+        check(onClient(mc -> ClientState.searchResults().isEmpty()), "contour désactivé : plus de résultats");
+        waitTicks(25);
+        server(s -> {
+            check(PlayerState.of(player(s)).searchMembers.isEmpty(), "contour désactivé : le serveur ne cherche plus");
+        });
+        client(mc -> {
+            EeiConfig.get().outlineEnabled = true;
+            EeiConfig.get().outlineColor = 0xFFC21A;
+            EeiConfig.get().outlineThickness = 3;
+            ClientState.settingsChanged();
+        });
+        waitFor("!ClientState.searchResults().isEmpty()", mc -> !ClientState.searchResults().isEmpty(), 100);
+
+        // ---- Réglages forcés par le serveur avec /eei
+        command("eei force outlineColor #FF0000");
+        waitFor("ClientState.isForced(EeiSetting.OUTLINE_COLOR)", mc -> ClientState.isForced(EeiSetting.OUTLINE_COLOR), 100);
+        check(onClient(mc -> (Integer) ClientState.value(EeiSetting.OUTLINE_COLOR) == 0xFF0000), "couleur forcée");
+        check(onClient(mc -> EeiConfig.get().outlineColor == 0xFFC21A), "un réglage forcé ne change pas celui du joueur");
+        client(mc -> mc.gui.setScreen(new EeiSettingsScreen(null)));
+        waitFor("réglages ouverts", mc -> mc.gui.screen() instanceof EeiSettingsScreen, 100);
+        waitTicks(2);
+        screenshot("eei_14_reglages_forces");
+        check(onClient(mc -> mc.gui.screen().children().stream().anyMatch(c -> c instanceof EditBox box && !box.active)), "le champ de couleur forcé doit être grisé");
+        client(mc -> mc.gui.setScreen(null));
+        waitTicks(2);
+
+        command("eei force searchEnabled false");
+        waitFor("!ClientState.bool(EeiSetting.SEARCH_ENABLED)", mc -> !ClientState.bool(EeiSetting.SEARCH_ENABLED), 100);
+        check(onClient(mc -> ClientState.searchItem() == null), "recherche forcée à non : la recherche en cours est oubliée");
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+        check(onClient(mc -> mc.gui.screen().children().stream().noneMatch(EditBox.class::isInstance)), "recherche forcée à non : pas de barre");
+        client(mc -> mc.gui.setScreen(null));
+        waitTicks(2);
+        waitTicks(25);
+        server(s -> {
+            check(PlayerState.of(player(s)).searchMembers.isEmpty(), "recherche forcée à non : le serveur ne cherche plus");
+        });
+
+        command("eei force hologramEnabled false");
+        waitFor("!ClientState.bool(EeiSetting.HOLOGRAM_ENABLED)", mc -> !ClientState.bool(EeiSetting.HOLOGRAM_ENABLED), 100);
+        waitTicks(10);
+        check(onClient(mc -> ClientState.contents() == null), "hologramme forcé à non : plus de résumé");
+
+        command("eei force depositRadius 1");
+        waitFor("ClientState.isForced(EeiSetting.DEPOSIT_RADIUS)", mc -> ClientState.isForced(EeiSetting.DEPOSIT_RADIUS), 100);
+        server(s -> {
+            Inventory inv = player(s).getInventory();
+            inv.setItem(15, new ItemStack(Items.DIAMOND, 1));
+        });
+        waitTicks(3);
+        client(mc -> mc.gui.setScreen(new InventoryScreen(mc.player)));
+        waitFor("inventaire ouvert", mc -> mc.gui.screen() instanceof InventoryScreen, 100);
+        waitTicks(2);
+        clickButton("Send");
+        waitTicks(5);
+        server(s -> {
+            check(player(s).getInventory().getItem(15).is(Items.DIAMOND), "rayon forcé à 1 : le coffre à 2 blocs est hors de portée");
+        });
+
+        command("eei free outlineColor");
+        command("eei free searchEnabled");
+        command("eei free hologramEnabled");
+        command("eei free depositRadius");
+        waitFor("!ClientState.isForced(EeiSetting.DEPOSIT_RADIUS) && !ClientState.isForced(EeiSetting.SEARCH_ENABLED)", mc -> !ClientState.isForced(EeiSetting.DEPOSIT_RADIUS) && !ClientState.isForced(EeiSetting.SEARCH_ENABLED), 100);
+        waitTicks(25);
+        clickButton("Send");
+        waitTicks(5);
+        server(s -> {
+            check(player(s).getInventory().getItem(15).isEmpty(), "rayon libéré : le diamant part dans le coffre");
+        });
+        command("eei reload");
+        client(mc -> {
+            mc.player.closeContainer();
+        });
     }
 
     /** Ouvre le conteneur comme un clic droit : le joueur le regarde, puis le serveur ouvre son menu. */

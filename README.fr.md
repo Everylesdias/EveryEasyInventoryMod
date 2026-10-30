@@ -11,7 +11,7 @@ publication : [docs/publication/PUBLIER.md](docs/publication/PUBLIER.md) ; histo
 | Où | Quoi | Comment |
 |---|---|---|
 | Inventaire | Rangement express vers les coffres, tonneaux et shulkers à ±5 blocs qui contiennent déjà l'item | bouton **Envoyer** (en haut à gauche) |
-| Inventaire, coffres | Trier | bouton **⇅** ou touche **R** sur la partie survolée |
+| Inventaire, coffres | Trier | bouton **⇅** ou touche de tri (**R** par défaut, à changer dans Options → Commandes) sur la partie survolée |
 | Coffres | Tout prendre / tout déposer / déposer ce qui est déjà présent | boutons **↓**, **↑**, **⇡** |
 | Partout | Envoyer toutes les piles survolées | **Maj + glisser** |
 | Partout | Envoyer tous les items du même type | **Ctrl + Maj + clic** |
@@ -24,6 +24,35 @@ publication : [docs/publication/PUBLIER.md](docs/publication/PUBLIER.md) ; histo
 
 Le mod doit être installé sur le serveur pour le rangement express, le tri, l'hologramme, le
 remplissage de la hotbar, le renommage et le contour des conteneurs trouvés par la recherche (en solo, c'est automatique).
+
+## Réglages
+
+Bouton **⚙** dans l'inventaire, ou liste des mods (NeoForge, ou Fabric avec Mod Menu) : barre de recherche, contour
+des conteneurs avec sa couleur et son épaisseur, hologramme et sa distance, rayon d'Envoyer, hotbar comprise dans
+Envoyer, remplissage de la main. Enregistrés dans `config/everyeasyinventorymod.json`.
+
+### Forcer les réglages sur un serveur
+
+Chaque réglage est libre ou forcé à une valeur. Un réglage forcé est grisé avec un cadenas pour les joueurs, et le
+serveur refuse lui-même la recherche, l'hologramme et Envoyer au-delà de ce qu'il autorise (la couleur et l'épaisseur
+ne concernent que l'affichage).
+
+```
+/eei force searchEnabled false
+/eei force outlineColor #FF0000
+/eei free searchEnabled
+/eei list
+/eei reload
+```
+
+Commandes réservées aux opérateurs, enregistrées dans `config/everyeasyinventorymod-server.json` :
+
+```json
+{ "forced": { "searchEnabled": "false", "outlineColor": "#FF0000" } }
+```
+
+Clés : `searchEnabled`, `outlineEnabled`, `outlineColor`, `outlineThickness` (1-5), `hologramEnabled`,
+`hologramMaxDistance` (1-6), `depositRadius` (1-16), `depositIncludesHotbar`, `hotbarRefill`.
 
 ## Construire
 

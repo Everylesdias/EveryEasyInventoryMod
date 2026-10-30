@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.client;
 
 import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.config.EeiSetting;
 import fr.every.everyeasyinventory.logic.ItemSearch;
 import fr.every.everyeasyinventory.logic.ServerActions;
 import fr.every.everyeasyinventory.network.Payloads;
@@ -14,6 +15,7 @@ import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -60,7 +62,7 @@ public final class ScreenTweaks {
 
     /** Barre de recherche dans l'inventaire du joueur et les écrans de coffre, tonneau et shulker. */
     public static boolean hasSearchBar(Screen screen) {
-        return screen instanceof InventoryScreen || screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen;
+        return ClientState.bool(EeiSetting.SEARCH_ENABLED) && (screen instanceof InventoryScreen || screen instanceof ContainerScreen || screen instanceof ShulkerBoxScreen);
     }
 
     /** Titre cliquable pour renommer : écrans de coffre, tonneau et shulker. */
@@ -92,8 +94,13 @@ public final class ScreenTweaks {
                         .size(width, 12)
                         .tooltip(Tooltip.create(Component.translatable("button.everyeasyinventorymod.send.tooltip")))
                         .build(), 0, -14));
-                buttons.add(new Placed(small("⇅", "sort_inventory", b -> sort(access, true)), access.eei$imageWidth() - 13, -14));
+                buttons.add(new Placed(sortButton("sort_inventory", b -> sort(access, true)), access.eei$imageWidth() - 13, -14));
             }
+            Button settings = Button.builder(Component.literal("⚙"), b -> Minecraft.getInstance().gui.setScreen(new EeiSettingsScreen(screen)))
+                    .size(BUTTON_SIZE, 12)
+                    .tooltip(Tooltip.create(Component.translatable("button.everyeasyinventorymod.settings")))
+                    .build();
+            buttons.add(new Placed(settings, access.eei$imageWidth() - 13 - (server ? BUTTON_SIZE + 1 : 0), -14));
             return buttons;
         }
         if (!ServerActions.isSortableMenu(menu)) {
@@ -103,20 +110,28 @@ public final class ScreenTweaks {
         int playerRow = access.eei$inventoryLabelY() - 2;
         int x = right;
         if (server) {
-            buttons.add(new Placed(small("⇅", "sort_container", b -> sort(access, false)), x, containerRow));
+            buttons.add(new Placed(sortButton("sort_container", b -> sort(access, false)), x, containerRow));
             x -= BUTTON_SIZE + 1;
         }
         buttons.add(new Placed(small("↓", "take_all", b -> takeAll(access)), x, containerRow));
 
         x = right;
         if (server) {
-            buttons.add(new Placed(small("⇅", "sort_inventory", b -> sort(access, true)), x, playerRow));
+            buttons.add(new Placed(sortButton("sort_inventory", b -> sort(access, true)), x, playerRow));
             x -= BUTTON_SIZE + 1;
         }
         buttons.add(new Placed(small("⇡", "deposit_matching", b -> deposit(access, true)), x, playerRow));
         x -= BUTTON_SIZE + 1;
         buttons.add(new Placed(small("↑", "deposit_all", b -> deposit(access, false)), x, playerRow));
         return buttons;
+    }
+
+    /** L'infobulle indique la touche de tri choisie par le joueur. */
+    private static Button sortButton(String key, Button.OnPress onPress) {
+        return Button.builder(Component.literal("⇅"), onPress)
+                .size(BUTTON_SIZE, BUTTON_SIZE)
+                .tooltip(Tooltip.create(Component.translatable("button.everyeasyinventorymod." + key, Keys.SORT.getTranslatedKeyMessage())))
+                .build();
     }
 
     private static Button small(String glyph, String key, Button.OnPress onPress) {
@@ -259,8 +274,8 @@ public final class ScreenTweaks {
         access.eei$click(from, 0, ContainerInput.PICKUP);
     }
 
-    public static boolean keyPressed(EeiScreenAccess access, int key) {
-        if (key != InputConstants.KEY_R || !ClientState.serverHasMod()) {
+    public static boolean keyPressed(EeiScreenAccess access, KeyEvent event) {
+        if (!Keys.SORT.matches(event) || !ClientState.serverHasMod()) {
             return false;
         }
         Slot slot = access.eei$hoveredSlot();
@@ -283,10 +298,7 @@ public final class ScreenTweaks {
         for (Slot slot : access.eei$menu().slots) {
             if (slot.isActive() && isPlayerSlot(slot) && ClientState.isLocked(slot.getContainerSlot())) {
                 // Cadenas de 4×5 pixels dans le coin haut droit, avec une ombre décalée d'un pixel.
-                int x = slot.x + 11;
-                int y = slot.y + 1;
-                drawPadlock(graphics, x + 1, y + 1, LOCK_SHADOW);
-                drawPadlock(graphics, x, y, LOCK_COLOR);
+                drawPadlock(graphics, slot.x + 11, slot.y + 1);
             }
         }
     }
@@ -307,6 +319,12 @@ public final class ScreenTweaks {
                 graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, SEARCH_DIM);
             }
         }
+    }
+
+    /** Le cadenas avec son ombre. */
+    static void drawPadlock(GuiGraphicsExtractor graphics, int x, int y) {
+        drawPadlock(graphics, x + 1, y + 1, LOCK_SHADOW);
+        drawPadlock(graphics, x, y, LOCK_COLOR);
     }
 
     private static void drawPadlock(GuiGraphicsExtractor graphics, int x, int y, int color) {

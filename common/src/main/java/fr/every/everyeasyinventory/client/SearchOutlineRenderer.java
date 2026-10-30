@@ -1,6 +1,7 @@
 package fr.every.everyeasyinventory.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import fr.every.everyeasyinventory.config.EeiSetting;
 import fr.every.everyeasyinventory.logic.ContainerFinder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -12,13 +13,12 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Contour doré des conteneurs proches qui ont l'item cherché, sur un liseré noir plus large (comme le contour
+ * Contour (couleur et épaisseur réglables) des conteneurs proches qui ont l'item cherché, sur un liseré noir plus large (comme le contour
  * « contraste élevé » du jeu). Dessiné avec le test de profondeur normal : les blocs devant le conteneur le cachent.
  */
 public final class SearchOutlineRenderer {
 
-    private static final int COLOR = 0xFFFFC21A;
-    /** Liseré sombre sous le trait doré, pour qu'il reste lisible en pleine lumière ou avec des shaders. */
+    /** Liseré sombre sous le trait de couleur, pour qu'il reste lisible en pleine lumière ou avec des shaders. */
     private static final int BACKING_COLOR = 0xFF000000;
     private static final double MAX_DISTANCE = 12.0;
 
@@ -27,10 +27,12 @@ public final class SearchOutlineRenderer {
 
     public static void submit(SubmitNodeCollector collector, Vec3 camera) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || ClientState.searchResults().isEmpty()) {
+        if (minecraft.level == null || ClientState.searchResults().isEmpty() || !ClientState.bool(EeiSetting.OUTLINE_ENABLED)) {
             return;
         }
-        float width = minecraft.gameRenderer.gameRenderState().windowRenderState.appropriateLineWidth;
+        int color = 0xFF000000 | (Integer) ClientState.value(EeiSetting.OUTLINE_COLOR);
+        float base = minecraft.gameRenderer.gameRenderState().windowRenderState.appropriateLineWidth;
+        float width = base * (Integer) ClientState.value(EeiSetting.OUTLINE_THICKNESS) * 5.0F / 6.0F;
         PoseStack poseStack = new PoseStack();
         for (BlockPos key : ClientState.searchResults()) {
             if (!ContainerFinder.isSupported(minecraft.level.getBlockEntity(key))
@@ -44,8 +46,8 @@ public final class SearchOutlineRenderer {
             poseStack.pushPose();
             poseStack.translate(box.minX - camera.x, box.minY - camera.y, box.minZ - camera.z);
             VoxelShape shape = Shapes.box(0, 0, 0, box.getXsize(), box.getYsize(), box.getZsize());
-            collector.submitShapeOutline(poseStack, shape, RenderTypes.secondaryBlockOutline(), BACKING_COLOR, width * 4.5F, false);
-            collector.submitShapeOutline(poseStack, shape, RenderTypes.linesDepthBias(), COLOR, width * 2.5F, false);
+            collector.submitShapeOutline(poseStack, shape, RenderTypes.secondaryBlockOutline(), BACKING_COLOR, width + base * 2.0F, false);
+            collector.submitShapeOutline(poseStack, shape, RenderTypes.linesDepthBias(), color, width, false);
             poseStack.popPose();
         }
     }

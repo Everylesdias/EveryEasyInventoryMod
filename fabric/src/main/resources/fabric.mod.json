@@ -21,6 +21,9 @@
         ],
         "client": [
             "fr.every.everyeasyinventory.EveryEasyInventoryFabricClient"
+        ],
+        "modmenu": [
+            "fr.every.everyeasyinventory.ModMenuIntegration"
         ]
     },
     "mixins": [

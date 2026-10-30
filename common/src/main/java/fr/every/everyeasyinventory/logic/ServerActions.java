@@ -1,6 +1,6 @@
 package fr.every.everyeasyinventory.logic;
 
-import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.config.EeiSetting;
 import fr.every.everyeasyinventory.mixin.BaseContainerBlockEntityAccessor;
 import fr.every.everyeasyinventory.network.Payloads;
 import fr.every.everyeasyinventory.platform.Services;
@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Tout ce que le serveur fait à la demande du client ou à chaque tick d'un joueur.
@@ -111,12 +112,15 @@ public final class ServerActions {
         }
         state.lastDepositTick = now;
 
-        EeiConfig config = EeiConfig.get();
-        List<ContainerFinder.Target> targets = nearbyContainers(player, level, config.depositRadius);
+        int radius = ServerSettings.intValue(player, EeiSetting.DEPOSIT_RADIUS);
+        BlockPos feet = player.blockPosition();
+        List<ContainerFinder.Target> targets = containersAround(player, level, radius,
+                pos -> Math.abs(pos.getX() - feet.getX()) <= radius && Math.abs(pos.getY() - feet.getY()) <= radius
+                        && Math.abs(pos.getZ() - feet.getZ()) <= radius);
         List<Set<Item>> contents = targets.stream().map(target -> itemsIn(target.container())).toList();
 
         Inventory inventory = player.getInventory();
-        int first = config.depositIncludesHotbar ? 0 : MAIN_START;
+        int first = ServerSettings.bool(player, EeiSetting.DEPOSIT_HOTBAR) ? 0 : MAIN_START;
         int moved = 0;
         Set<Integer> touched = new HashSet<>();
         for (int i = first; i < MAIN_END; i++) {
@@ -157,19 +161,35 @@ public final class ServerActions {
         player.sendOverlayMessage(Component.translatable("message.everyeasyinventorymod.deposit", moved, touched.size()));
     }
 
-    private static List<ContainerFinder.Target> nearbyContainers(ServerPlayer player, ServerLevel level, int radius) {
-        BlockPos center = player.blockPosition();
+    /**
+     * Conteneurs accessibles au joueur, du plus proche au plus loin. On ne parcourt que les block entities des tronçons
+     * déjà chargés à {@code radius} blocs, jamais chaque position, et on ne charge aucun tronçon.
+     */
+    private static List<ContainerFinder.Target> containersAround(ServerPlayer player, ServerLevel level, double radius, Predicate<BlockPos> inside) {
         Vec3 eyes = player.getEyePosition();
+        int minChunkX = SectionPos.blockToSectionCoord(eyes.x - radius - 1);
+        int maxChunkX = SectionPos.blockToSectionCoord(eyes.x + radius + 1);
+        int minChunkZ = SectionPos.blockToSectionCoord(eyes.z - radius - 1);
+        int maxChunkZ = SectionPos.blockToSectionCoord(eyes.z + radius + 1);
         Set<BlockPos> seen = new HashSet<>();
         List<ContainerFinder.Target> targets = new ArrayList<>();
-        for (BlockPos pos : BlockPos.betweenClosed(center.offset(-radius, -radius, -radius), center.offset(radius, radius, radius))) {
-            if (!level.isLoaded(pos) || !ContainerFinder.isSupported(level.getBlockEntity(pos))) {
-                continue;
-            }
-            BlockPos immutable = pos.immutable();
-            ContainerFinder.Target target = ContainerFinder.find(level, immutable);
-            if (target != null && seen.add(target.key()) && ContainerFinder.canAccess(player, level, immutable)) {
-                targets.add(target);
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
+                if (chunk == null) {
+                    continue;
+                }
+                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                    BlockPos pos = blockEntity.getBlockPos();
+                    if (!ContainerFinder.isSupported(blockEntity) || !inside.test(pos)
+                            || !seen.add(ContainerFinder.key(blockEntity.getBlockState(), pos))) {
+                        continue;
+                    }
+                    ContainerFinder.Target target = ContainerFinder.find(level, pos);
+                    if (target != null && ContainerFinder.canAccess(player, level, pos)) {
+                        targets.add(target);
+                    }
+                }
             }
         }
         targets.sort(Comparator.comparingDouble(target -> target.center().distanceToSqr(eyes)));
@@ -218,7 +238,8 @@ public final class ServerActions {
 
     public static void peek(ServerPlayer player, Optional<BlockPos> pos) {
         PlayerState state = PlayerState.of(player);
-        state.peekPos = pos.filter(p -> isPeekable(player, p, EeiConfig.get().hologramMaxDistance + 1.5)).orElse(null);
+        state.peekPos = !ServerSettings.bool(player, EeiSetting.HOLOGRAM_ENABLED) ? null
+                : pos.filter(p -> isPeekable(player, p, ServerSettings.doubleValue(player, EeiSetting.HOLOGRAM_DISTANCE) + 1.5)).orElse(null);
         state.peekHash = 0;
         if (state.peekPos != null) {
             sendPeek(player, state, true);
@@ -322,7 +343,7 @@ public final class ServerActions {
 
     public static void search(ServerPlayer player, Optional<Item> item) {
         PlayerState state = PlayerState.of(player);
-        state.searchMembers = item.filter(i -> i != Items.AIR).map(ItemSearch::members).orElse(Set.of());
+        state.searchMembers = item.filter(i -> i != Items.AIR && isSearchAllowed(player)).map(ItemSearch::members).orElse(Set.of());
         state.searchPos = null;
         state.searchHash = 0;
         if (!state.searchMembers.isEmpty()) {
@@ -330,42 +351,18 @@ public final class ServerActions {
         }
     }
 
-    /**
-     * Conteneurs à {@link #SEARCH_RADIUS} blocs des yeux qui ont l'item cherché. On ne parcourt que les block entities
-     * des tronçons déjà chargés qui touchent la sphère, jamais chaque position, et on ne charge aucun tronçon.
-     */
+    private static boolean isSearchAllowed(ServerPlayer player) {
+        return ServerSettings.bool(player, EeiSetting.SEARCH_ENABLED) && ServerSettings.bool(player, EeiSetting.OUTLINE_ENABLED);
+    }
+
+    /** Conteneurs à {@link #SEARCH_RADIUS} blocs des yeux qui ont l'item cherché. */
     private static void scanSearch(ServerPlayer player, PlayerState state, boolean force) {
         ServerLevel level = (ServerLevel) player.level();
         Vec3 eyes = player.getEyePosition();
         double maxSqr = SEARCH_RADIUS * SEARCH_RADIUS;
-        int minChunkX = SectionPos.blockToSectionCoord(eyes.x - SEARCH_RADIUS);
-        int maxChunkX = SectionPos.blockToSectionCoord(eyes.x + SEARCH_RADIUS);
-        int minChunkZ = SectionPos.blockToSectionCoord(eyes.z - SEARCH_RADIUS);
-        int maxChunkZ = SectionPos.blockToSectionCoord(eyes.z + SEARCH_RADIUS);
-        Set<BlockPos> seen = new HashSet<>();
-        List<ContainerFinder.Target> found = new ArrayList<>();
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
-                if (chunk == null) {
-                    continue;
-                }
-                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-                    BlockPos pos = blockEntity.getBlockPos();
-                    if (!ContainerFinder.isSupported(blockEntity) || Vec3.atCenterOf(pos).distanceToSqr(eyes) > maxSqr
-                            || !seen.add(ContainerFinder.key(blockEntity.getBlockState(), pos))) {
-                        continue;
-                    }
-                    ContainerFinder.Target target = ContainerFinder.find(level, pos);
-                    if (target != null && ContainerFinder.canAccess(player, level, pos)
-                            && ItemSearch.contains(target.container(), state.searchMembers)) {
-                        found.add(target);
-                    }
-                }
-            }
-        }
-        found.sort(Comparator.comparingDouble(target -> target.center().distanceToSqr(eyes)));
-        List<BlockPos> keys = found.stream().limit(MAX_SEARCH_RESULTS).map(ContainerFinder.Target::key).toList();
+        List<BlockPos> keys = containersAround(player, level, SEARCH_RADIUS, pos -> Vec3.atCenterOf(pos).distanceToSqr(eyes) <= maxSqr).stream()
+                .filter(target -> ItemSearch.contains(target.container(), state.searchMembers))
+                .limit(MAX_SEARCH_RESULTS).map(ContainerFinder.Target::key).toList();
         state.searchPos = player.blockPosition();
         int hash = keys.hashCode() * 31 + 1;
         if (force || hash != state.searchHash) {
@@ -379,18 +376,24 @@ public final class ServerActions {
     public static void tick(ServerPlayer player) {
         PlayerState state = PlayerState.of(player);
         if (state.peekPos != null && player.tickCount % 5 == 0) {
-            if (isPeekable(player, state.peekPos, EeiConfig.get().hologramMaxDistance + 2.5)) {
+            if (ServerSettings.bool(player, EeiSetting.HOLOGRAM_ENABLED)
+                    && isPeekable(player, state.peekPos, ServerSettings.doubleValue(player, EeiSetting.HOLOGRAM_DISTANCE) + 2.5)) {
                 sendPeek(player, state, false);
             } else {
                 state.peekPos = null;
             }
         }
         // Recherche : toutes les 10 ticks si le joueur a bougé, sinon toutes les 20 pour voir les coffres qui changent.
+        if (!state.searchMembers.isEmpty() && !isSearchAllowed(player)) {
+            // Interdite entre-temps par le serveur (/eei) : plus aucun résultat.
+            search(player, Optional.empty());
+            Services.PLATFORM.sendToPlayer(player, new Payloads.SearchResults(List.of()));
+        }
         if (!state.searchMembers.isEmpty() && player.tickCount % 10 == 0
                 && (player.tickCount % 20 == 0 || !player.blockPosition().equals(state.searchPos))) {
             scanSearch(player, state, false);
         }
-        if (EeiConfig.get().hotbarRefill) {
+        if (ServerSettings.bool(player, EeiSetting.HOTBAR_REFILL)) {
             refillHotbar(player, state);
         }
     }

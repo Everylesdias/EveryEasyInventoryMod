@@ -3,11 +3,17 @@ package fr.every.everyeasyinventory.gametest;
 import com.mojang.blaze3d.platform.InputConstants;
 import fr.every.everyeasyinventory.client.ClientState;
 import fr.every.everyeasyinventory.client.EeiScreenAccess;
+import fr.every.everyeasyinventory.client.EeiSettingsScreen;
+import fr.every.everyeasyinventory.client.Keys;
+import fr.every.everyeasyinventory.config.EeiConfig;
+import fr.every.everyeasyinventory.config.EeiSetting;
+import fr.every.everyeasyinventory.logic.PlayerState;
 import fr.every.everyeasyinventory.network.Payloads;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
@@ -30,7 +36,7 @@ import java.util.List;
 /**
  * Scénario de bout en bout dans un vrai client avec un monde solo :
  * rangement express, cases verrouillées, hologramme, tri, tout prendre / tout déposer, remplissage de la hotbar, recherche d'item,
- * renommage d'un conteneur.
+ * renommage d'un conteneur, écran de réglages, touche de tri réassignée, réglages forcés par le serveur avec /eei.
  * Lancer avec {@code ./gradlew :fabric:runClientGameTest} ; les captures sont dans fabric/build/run/clientGameTest/screenshots.
  */
 public class EeiClientGameTest implements FabricClientGameTest {
@@ -299,6 +305,144 @@ public class EeiClientGameTest implements FabricClientGameTest {
             server.runOnServer(s -> check(((BaseContainerBlockEntity) s.overworld().getBlockEntity(chestA)).getCustomName() == null, "champ vidé : nom par défaut"));
             check(context.computeOnClient(mc -> mc.gui.screen().getTitle().getString()).equals("Chest"), "titre par défaut");
             context.runOnClient(mc -> mc.player.closeContainer());
+            context.waitTicks(3);
+
+            // ---- Réglages : le bouton ⚙ ouvre l'écran, Échap revient à l'inventaire
+            context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+            context.clickScreenButton("⚙");
+            context.waitForScreen(EeiSettingsScreen.class);
+            context.takeScreenshot("eei_12_reglages");
+            context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+
+            // ---- Touche de tri réassignée : R ne trie plus, G trie
+            server.runOnServer(s -> {
+                Inventory inv = player(s).getInventory();
+                inv.clearContent();
+                inv.setItem(9, new ItemStack(Items.COBBLESTONE, 10));
+                inv.setItem(12, new ItemStack(Items.COBBLESTONE, 10));
+                player(s).containerMenu.broadcastChanges();
+            });
+            context.waitTicks(5);
+            context.runOnClient(mc -> {
+                Keys.SORT.setKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_G));
+                KeyMapping.resetMapping();
+            });
+            context.getInput().pressKey(InputConstants.KEY_R);
+            context.waitTicks(5);
+            server.runOnServer(s -> {
+                check(player(s).getInventory().getItem(9).getCount() == 10, "R ne doit plus trier une fois la touche changée");
+            });
+            context.getInput().pressKey(InputConstants.KEY_G);
+            context.waitTicks(5);
+            server.runOnServer(s -> {
+                Inventory inv = player(s).getInventory();
+                check(inv.getItem(9).getCount() == 20 && inv.getItem(12).isEmpty(), "la nouvelle touche doit trier : case 9 = " + inv.getItem(9));
+            });
+            context.runOnClient(mc -> {
+                Keys.SORT.setKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_R));
+                KeyMapping.resetMapping();
+                mc.player.closeContainer();
+            });
+            context.waitTicks(3);
+
+            // ---- Couleur et épaisseur du contour, contour désactivé
+            server.runOnServer(s -> {
+                container(s, chestA).setItem(0, new ItemStack(Items.DIAMOND, 2));
+            });
+            context.runOnClient(mc -> {
+                EeiConfig.get().outlineColor = 0xFF3B30;
+                EeiConfig.get().outlineThickness = 5;
+                ClientState.settingsChanged();
+                ClientState.setSearch("Diamond", Items.DIAMOND);
+            });
+            context.waitFor(mc -> !ClientState.searchResults().isEmpty(), 100);
+            context.getInput().lookAt(chestA);
+            context.waitTicks(5);
+            context.takeScreenshot("eei_13_contour_reglages");
+            context.runOnClient(mc -> {
+                EeiConfig.get().outlineEnabled = false;
+                ClientState.settingsChanged();
+            });
+            check(context.computeOnClient(mc -> ClientState.searchResults().isEmpty()), "contour désactivé : plus de résultats");
+            context.waitTicks(25);
+            server.runOnServer(s -> {
+                check(PlayerState.of(player(s)).searchMembers.isEmpty(), "contour désactivé : le serveur ne cherche plus");
+            });
+            context.runOnClient(mc -> {
+                EeiConfig.get().outlineEnabled = true;
+                EeiConfig.get().outlineColor = 0xFFC21A;
+                EeiConfig.get().outlineThickness = 3;
+                ClientState.settingsChanged();
+            });
+            context.waitFor(mc -> !ClientState.searchResults().isEmpty(), 100);
+
+            // ---- Réglages forcés par le serveur avec /eei
+            server.runCommand("eei force outlineColor #FF0000");
+            context.waitFor(mc -> ClientState.isForced(EeiSetting.OUTLINE_COLOR), 100);
+            check(context.computeOnClient(mc -> (Integer) ClientState.value(EeiSetting.OUTLINE_COLOR) == 0xFF0000), "couleur forcée");
+            check(context.computeOnClient(mc -> EeiConfig.get().outlineColor == 0xFFC21A), "un réglage forcé ne change pas celui du joueur");
+            context.setScreen(() -> new EeiSettingsScreen(null));
+            context.waitForScreen(EeiSettingsScreen.class);
+            context.waitTicks(2);
+            context.takeScreenshot("eei_14_reglages_forces");
+            check(context.computeOnClient(mc -> mc.gui.screen().children().stream().anyMatch(c -> c instanceof EditBox box && !box.active)), "le champ de couleur forcé doit être grisé");
+            context.setScreen(() -> null);
+            context.waitTicks(2);
+
+            server.runCommand("eei force searchEnabled false");
+            context.waitFor(mc -> !ClientState.bool(EeiSetting.SEARCH_ENABLED), 100);
+            check(context.computeOnClient(mc -> ClientState.searchItem() == null), "recherche forcée à non : la recherche en cours est oubliée");
+            context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+            check(context.computeOnClient(mc -> mc.gui.screen().children().stream().noneMatch(EditBox.class::isInstance)), "recherche forcée à non : pas de barre");
+            context.setScreen(() -> null);
+            context.waitTicks(2);
+            context.waitTicks(25);
+            server.runOnServer(s -> {
+                check(PlayerState.of(player(s)).searchMembers.isEmpty(), "recherche forcée à non : le serveur ne cherche plus");
+            });
+
+            server.runCommand("eei force hologramEnabled false");
+            context.waitFor(mc -> !ClientState.bool(EeiSetting.HOLOGRAM_ENABLED), 100);
+            context.waitTicks(10);
+            check(context.computeOnClient(mc -> ClientState.contents() == null), "hologramme forcé à non : plus de résumé");
+
+            server.runCommand("eei force depositRadius 1");
+            context.waitFor(mc -> ClientState.isForced(EeiSetting.DEPOSIT_RADIUS), 100);
+            server.runOnServer(s -> {
+                Inventory inv = player(s).getInventory();
+                inv.setItem(15, new ItemStack(Items.DIAMOND, 1));
+            });
+            context.waitTicks(3);
+            context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
+            context.waitForScreen(InventoryScreen.class);
+            context.waitTicks(2);
+            context.clickScreenButton("Send");
+            context.waitTicks(5);
+            server.runOnServer(s -> {
+                check(player(s).getInventory().getItem(15).is(Items.DIAMOND), "rayon forcé à 1 : le coffre à 2 blocs est hors de portée");
+            });
+
+            server.runCommand("eei free outlineColor");
+            server.runCommand("eei free searchEnabled");
+            server.runCommand("eei free hologramEnabled");
+            server.runCommand("eei free depositRadius");
+            context.waitFor(mc -> !ClientState.isForced(EeiSetting.DEPOSIT_RADIUS) && !ClientState.isForced(EeiSetting.SEARCH_ENABLED), 100);
+            context.waitTicks(25);
+            context.clickScreenButton("Send");
+            context.waitTicks(5);
+            server.runOnServer(s -> {
+                check(player(s).getInventory().getItem(15).isEmpty(), "rayon libéré : le diamant part dans le coffre");
+            });
+            server.runCommand("eei reload");
+            context.runOnClient(mc -> {
+                mc.player.closeContainer();
+            });
         }
     }
 
